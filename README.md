@@ -1,2 +1,12 @@
-# lapidary
-Interactive gemstone data visualization
+# Lapidary
+보석 105종의 데이터를 기반으로 한 인터랙티브 시각화
+
+## 사용법
+lapidary.html을 브라우저에서 열거나
+GitHub Pages 링크로 접속
+
+## 주요 기능
+- 5축 색상환 (색상/가격/경도/희소도/원산지)
+- 경도 기반 보석 파괴 메커니즘
+- 화학식+불순물 기반 보석 합성 시스템
+- 지구과학적 발색 원소 데이터 기반 생태계
