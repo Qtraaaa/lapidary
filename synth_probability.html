@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Lapidary — 합성 확률 분포도</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root{--bg:#0e0e0e;--ink:#e2dfd8;--dim:#6a6760;--line:#2e2e2e;--accent:#c8a96e;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:'Pretendard',sans-serif;
+  min-height:100vh;padding:40px;}
+h1{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:400;
+  color:var(--accent);margin-bottom:4px;}
+.sub{font-size:11px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;
+  margin-bottom:40px;}
+.grid{display:grid;grid-template-columns:1fr 280px;gap:32px;align-items:start;}
+.panel{background:#141414;border:1px solid var(--line);padding:24px;}
+.panel-title{font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:20px;}
+/* Bar chart */
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:5px;cursor:default;}
+.bar-name{font-size:10px;color:var(--dim);text-align:right;flex-shrink:0;width:120px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bar-name:hover{color:var(--ink);}
+.bar-track{flex:1;height:6px;background:#1e1e1e;border-radius:3px;position:relative;}
+.bar-fill{height:100%;border-radius:3px;transition:width .3s;}
+.bar-pct{font-size:9px;color:var(--dim);flex-shrink:0;width:38px;text-align:right;}
+.bar-elem{font-size:8px;color:#555;flex-shrink:0;width:90px;letter-spacing:.03em;}
+/* Tiers */
+.tier-s{background:linear-gradient(90deg,#c8a96e,#f0d090);}
+.tier-a{background:linear-gradient(90deg,#7eb4e0,#a0d4ff);}
+.tier-b{background:linear-gradient(90deg,#7ec89e,#a0e8be);}
+.tier-c{background:linear-gradient(90deg,#b87878,#e0a0a0);}
+.tier-d{background:linear-gradient(90deg,#888,#aaa);}
+/* Elem freq */
+.elem-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.elem-sym{font-size:12px;font-weight:600;width:28px;flex-shrink:0;}
+.elem-bar{flex:1;height:4px;border-radius:2px;background:var(--line);}
+.elem-bar-fill{height:100%;border-radius:2px;}
+.elem-pct{font-size:9px;color:var(--dim);width:32px;text-align:right;}
+/* Legend */
+.legend{display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:9px;color:var(--dim);}
+.leg-dot{width:10px;height:6px;border-radius:3px;}
+/* Insight box */
+.insight{background:#111;border-left:2px solid var(--accent);
+  padding:16px;margin-top:24px;font-size:11px;line-height:1.8;color:var(--dim);}
+.insight b{color:var(--ink);}
+.insight .warn{color:#e08080;}
+/* Scroll */
+.scroll-wrap{max-height:620px;overflow-y:auto;padding-right:4px;}
+.scroll-wrap::-webkit-scrollbar{width:3px;}
+.scroll-wrap::-webkit-scrollbar-thumb{background:#333;border-radius:2px;}
+.divider{border:none;border-top:1px solid var(--line);margin:12px 0;}
+</style>
+</head>
+<body>
+<h1>보석 합성 확률 분포도</h1>
+<div class="sub">Synthesis Probability Analysis v2 — with Formula Counts + Impurity System</div>
+
+<div class="legend">
+  <div class="leg-item"><div class="leg-dot tier-s"></div>S급 (60%+)</div>
+  <div class="leg-item"><div class="leg-dot tier-a"></div>A급 (20–60%)</div>
+  <div class="leg-item"><div class="leg-dot tier-b"></div>B급 (8–20%)</div>
+  <div class="leg-item"><div class="leg-dot tier-c"></div>C급 (2–8%)</div>
+  <div class="leg-item"><div class="leg-dot tier-d"></div>D급 (&lt;2%)</div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <div class="panel-title">전체 보석 합성 확률 (높은 순)</div>
+    <div class="scroll-wrap" id="bars"></div>
+  </div>
+  <div>
+    <div class="panel">
+      <div class="panel-title">원소 출현 빈도</div>
+      <div id="elem-freq"></div>
+    </div>
+    <div class="insight">
+      <b>쏠림 원인 분석</b><br><br>
+      <b>v2 — 화학식+불순물 이중 조건 시스템</b><br><br>
+      <span class="warn">■ 흑수정·오닉스</span> Al 불순물 → Si+Al 공급 풍부 → 상위권<br>
+      <span class="warn">■ 석영 계열</span> Si+Fe 불순물 → 여전히 상위, 단 Fe 필요<br><br>
+      <b>불순물 시스템 효과</b>: 루비·사파이어 계열(Al×2+불순물)이 중위권으로 진입.<br>
+      Cr·V 불순물 희귀 → 알렉산드라이트·에메랄드 하위권 유지.<br><br>
+      <b>생태계 순환</b>: 석영파괴→Fe/Ti 축적→사파이어 합성→Cr 방출→루비 가능<br><br>
+      <b>다이아몬드(C×5)</b>: C 공급 희귀 → 사실상 생성 불가 (의도된 설계)
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = {"gems": [{"id": "smoky_quartz", "name_ko": "흑수정", "price_tier": 1, "rarity": 1, "formula_req": {"Si": 1}, "impurity": ["Al"], "score": 0.004177152000000001, "prob": 100.0}, {"id": "onyx", "name_ko": "오닉스", "price_tier": 1, "rarity": 1, "formula_req": {"Si": 1}, "impurity": ["Al"], "score": 0.004177152000000001, "prob": 100.0}, {"id": "citrine", "name_ko": "황수정", "price_tier": 1, "rarity": 1, "formula_req": {"Si": 1}, "impurity": ["Fe"], "score": 0.0011741184000000002, "prob": 28.108108}, {"id": "chalcedony_blue", "name_ko": "블루 칼세도니", "price_tier": 1, "rarity": 1, "formula_req": {"Si": 1}, "impurity": ["Fe"], "score": 0.0011741184000000002, "prob": 28.108108}, {"id": "carnelian", "name_ko": "카넬리안", "price_tier": 1, "rarity": 1, "formula_req": {"Si": 1}, "impurity": ["Fe"], "score": 0.0011741184000000002, "prob": 28.108108}, {"id": "tigers_eye", "name_ko": "호안석", "price_tier": 1, "rarity": 1, "formula_req": {"Si": 1}, "impurity": ["Fe"], "score": 0.0011741184000000002, "prob": 28.108108}, {"id": "prasiolite", "name_ko": "프라시올라이트", "price_tier": 1, "rarity": 2, "formula_req": {"Si": 1}, "impurity": ["Fe"], "score": 0.0010002809142857143, "prob": 23.946481}, {"id": "amethyst", "name_ko": "자수정", "price_tier": 2, "rarity": 2, "formula_req": {"Si": 1}, "impurity": ["Fe"], "score": 0.0008664685714285716, "prob": 20.743046}, {"id": "rose_quartz", "name_ko": "장미수정", "price_tier": 1, "rarity": 1, "formula_req": {"Si": 1}, "impurity": ["Ti", "Mn"], "score": 0.0006999552000000001, "prob": 16.756757}, {"id": "moldavite", "name_ko": "몰다바이트", "price_tier": 3, "rarity": 3, "formula_req": {"Si": 2, "Al": 1}, "impurity": [], "score": 0.000510331062857143, "prob": 12.217201}, {"id": "opal_white", "name_ko": "화이트 오팔", "price_tier": 2, "rarity": 2, "formula_req": {"Si": 1, "H": 1}, "impurity": [], "score": 0.000449897142857143, "prob": 10.770428}, {"id": "zultanite", "name_ko": "줄타나이트", "price_tier": 4, "rarity": 4, "formula_req": {"Al": 1}, "impurity": ["Mn", "Fe"], "score": 0.0004314048979591838, "prob": 10.327728}, {"id": "rhodonite", "name_ko": "로도나이트", "price_tier": 2, "rarity": 2, "formula_req": {"Mn": 1, "Si": 1}, "impurity": [], "score": 0.00038324571428571445, "prob": 9.174809}, {"id": "sapphire_orange", "name_ko": "오렌지 사파이어", "price_tier": 3, "rarity": 3, "formula_req": {"Al": 2}, "impurity": ["Fe", "Cr"], "score": 0.00016056334460641406, "prob": 3.843847}, {"id": "sapphire_green", "name_ko": "그린 사파이어", "price_tier": 3, "rarity": 3, "formula_req": {"Al": 2}, "impurity": ["Fe"], "score": 0.00011132391892711374, "prob": 2.665067}, {"id": "pearl", "name_ko": "진주", "price_tier": 3, "rarity": 3, "formula_req": {"Ca": 1, "C": 1}, "impurity": [], "score": 8.669716897959188e-05, "prob": 2.075509}, {"id": "sapphire_yellow", "name_ko": "옐로 사파이어", "price_tier": 4, "rarity": 3, "formula_req": {"Al": 2}, "impurity": ["Fe"], "score": 8.631223304956272e-05, "prob": 2.066294}, {"id": "moonstone", "name_ko": "월장석", "price_tier": 2, "rarity": 2, "formula_req": {"K": 1, "Al": 1, "Si": 1}, "impurity": [], "score": 7.398308571428574e-05, "prob": 1.771137}, {"id": "zircon_red", "name_ko": "레드 지르콘", "price_tier": 3, "rarity": 3, "formula_req": {"Zr": 1, "Si": 1}, "impurity": [], "score": 6.896365714285716e-05, "prob": 1.650973}, {"id": "kyanite", "name_ko": "카이아나이트", "price_tier": 2, "rarity": 2, "formula_req": {"Al": 2, "Si": 1}, "impurity": ["Fe", "Ti"], "score": 4.46918232069971e-05, "prob": 1.069911}, {"id": "sapphire_pink", "name_ko": "핑크 사파이어", "price_tier": 4, "rarity": 3, "formula_req": {"Al": 2}, "impurity": ["Cr"], "score": 3.817656461807582e-05, "prob": 0.913938}, {"id": "padparadscha", "name_ko": "파드파라차", "price_tier": 5, "rarity": 5, "formula_req": {"Al": 2}, "impurity": ["Cr", "Fe"], "score": 3.1035988338192446e-05, "prob": 0.742994}, {"id": "topaz_colorless", "name_ko": "화이트 토파즈", "price_tier": 1, "rarity": 1, "formula_req": {"Al": 2, "F": 1, "Si": 1}, "impurity": [], "score": 3.0280089600000008e-05, "prob": 0.724898}, {"id": "rhodochrosite", "name_ko": "로도크로사이트", "price_tier": 3, "rarity": 3, "formula_req": {"Mn": 1, "C": 1}, "impurity": [], "score": 3.0212649795918378e-05, "prob": 0.723283}, {"id": "sapphire_blue", "name_ko": "블루 사파이어", "price_tier": 5, "rarity": 5, "formula_req": {"Al": 2}, "impurity": ["Fe", "Ti"], "score": 2.4828790670553963e-05, "prob": 0.594395}, {"id": "sapphire_purple", "name_ko": "퍼플 사파이어", "price_tier": 3, "rarity": 3, "formula_req": {"Al": 2}, "impurity": ["V"], "score": 2.354929054227406e-05, "prob": 0.563764}, {"id": "malachite", "name_ko": "공작석", "price_tier": 2, "rarity": 2, "formula_req": {"Cu": 1, "C": 1}, "impurity": [], "score": 1.9043265306122453e-05, "prob": 0.455891}, {"id": "opal_fire", "name_ko": "파이어 오팔", "price_tier": 3, "rarity": 3, "formula_req": {"Si": 1, "H": 1}, "impurity": ["Fe"], "score": 1.8442852310204087e-05, "prob": 0.441517}, {"id": "grossular", "name_ko": "그로슐라 가넷", "price_tier": 2, "rarity": 2, "formula_req": {"Ca": 2, "Al": 1, "Si": 1}, "impurity": [], "score": 1.75385208909621e-05, "prob": 0.419868}, {"id": "chrysoprase", "name_ko": "크리소프레이즈", "price_tier": 2, "rarity": 2, "formula_req": {"Si": 1}, "impurity": ["Ni"], "score": 1.6662857142857146e-05, "prob": 0.398905}, {"id": "crocoite", "name_ko": "크로코아이트", "price_tier": 3, "rarity": 3, "formula_req": {"Pb": 1, "Cr": 1}, "impurity": [], "score": 1.2588604081632657e-05, "prob": 0.301368}, {"id": "phenakite", "name_ko": "페나카이트", "price_tier": 4, "rarity": 4, "formula_req": {"Be": 2, "Si": 1}, "impurity": [], "score": 1.1349913077551027e-05, "prob": 0.271714}, {"id": "almandine", "name_ko": "알만딘 가넷", "price_tier": 2, "rarity": 2, "formula_req": {"Fe": 2, "Al": 1, "Si": 1}, "impurity": [], "score": 1.0887089184839653e-05, "prob": 0.260634}, {"id": "opal_black", "name_ko": "블랙 오팔", "price_tier": 4, "rarity": 4, "formula_req": {"Si": 1, "H": 1}, "impurity": ["Fe"], "score": 1.047684284081633e-05, "prob": 0.250813}, {"id": "ruby", "name_ko": "루비", "price_tier": 5, "rarity": 5, "formula_req": {"Al": 2}, "impurity": ["Cr"], "score": 9.517703090379017e-06, "prob": 0.227851}, {"id": "vanadinite", "name_ko": "바나디나이트", "price_tier": 2, "rarity": 2, "formula_req": {"Pb": 1, "V": 1}, "impurity": [], "score": 8.728163265306124e-06, "prob": 0.20895}, {"id": "pyrope", "name_ko": "파이로프 가넷", "price_tier": 2, "rarity": 2, "formula_req": {"Mg": 2, "Al": 1, "Si": 1}, "impurity": [], "score": 8.153238017492713e-06, "prob": 0.195187}, {"id": "labradorite", "name_ko": "라브라도라이트", "price_tier": 2, "rarity": 2, "formula_req": {"Na": 1, "Al": 1, "Si": 1}, "impurity": ["Fe", "Ti"], "score": 7.972054950437322e-06, "prob": 0.190849}, {"id": "fluorite", "name_ko": "형석 (플루오라이트)", "price_tier": 1, "rarity": 1, "formula_req": {"Ca": 1, "F": 2}, "impurity": [], "score": 7.299072000000002e-06, "prob": 0.174738}, {"id": "sphene", "name_ko": "스페 (타이타나이트)", "price_tier": 3, "rarity": 3, "formula_req": {"Ca": 1, "Ti": 1, "Si": 1}, "impurity": [], "score": 6.93577351836735e-06, "prob": 0.166041}, {"id": "sunstone", "name_ko": "선스톤", "price_tier": 2, "rarity": 2, "formula_req": {"Na": 1, "Al": 1, "Si": 1}, "impurity": ["Fe"], "score": 6.909114290379011e-06, "prob": 0.165403}, {"id": "goshenite", "name_ko": "고쉘나이트", "price_tier": 2, "rarity": 2, "formula_req": {"Be": 2, "Al": 1, "Si": 1}, "impurity": [], "score": 6.123987666472306e-06, "prob": 0.146607}, {"id": "spectrolite", "name_ko": "스펙트롤라이트", "price_tier": 3, "rarity": 3, "formula_req": {"Na": 1, "Al": 1, "Si": 1}, "impurity": ["Fe", "Ti"], "score": 5.499077575276971e-06, "prob": 0.131647}, {"id": "chrysoberyl", "name_ko": "크리소베릴", "price_tier": 3, "rarity": 3, "formula_req": {"Be": 1, "Al": 2}, "impurity": ["Fe"], "score": 4.9618661007513565e-06, "prob": 0.118786}, {"id": "charoite", "name_ko": "차로아이트", "price_tier": 3, "rarity": 3, "formula_req": {"K": 1, "Ca": 1, "Si": 2}, "impurity": [], "score": 4.36953731657143e-06, "prob": 0.104606}, {"id": "zircon_blue", "name_ko": "블루 지르콘", "price_tier": 3, "rarity": 3, "formula_req": {"Zr": 1, "Si": 1}, "impurity": ["Fe"], "score": 4.098411624489797e-06, "prob": 0.098115}, {"id": "jadeite", "name_ko": "임페리얼 제이다이트", "price_tier": 5, "rarity": 5, "formula_req": {"Na": 1, "Al": 1, "Si": 2}, "impurity": [], "score": 3.7202923102040846e-06, "prob": 0.089063}, {"id": "spinel_blue", "name_ko": "블루 스피넬", "price_tier": 4, "rarity": 4, "formula_req": {"Mg": 1, "Al": 2}, "impurity": ["Fe"], "score": 3.252335113169514e-06, "prob": 0.07786}, {"id": "cats_eye", "name_ko": "캣츠아이 크리소베릴", "price_tier": 4, "rarity": 4, "formula_req": {"Be": 1, "Al": 2}, "impurity": ["Fe"], "score": 2.818690431413579e-06, "prob": 0.067479}, {"id": "cavansite", "name_ko": "카반사이트", "price_tier": 2, "rarity": 3, "formula_req": {"Ca": 1, "V": 1, "Si": 2}, "impurity": [], "score": 2.7696223190204087e-06, "prob": 0.066304}, {"id": "spinel_pink", "name_ko": "핑크 스피넬", "price_tier": 3, "rarity": 3, "formula_req": {"Mg": 1, "Al": 2}, "impurity": ["Cr"], "score": 2.5323133206497305e-06, "prob": 0.060623}, {"id": "peridot", "name_ko": "페리도트", "price_tier": 2, "rarity": 2, "formula_req": {"Mg": 2, "Fe": 1, "Si": 1}, "impurity": [], "score": 2.2917209562682217e-06, "prob": 0.054863}, {"id": "demantoid", "name_ko": "디만토이드 가넷", "price_tier": 4, "rarity": 4, "formula_req": {"Ca": 2, "Fe": 1, "Si": 1}, "impurity": [], "score": 1.9317302609352774e-06, "prob": 0.046245}, {"id": "scapolite", "name_ko": "스카폴라이트", "price_tier": 2, "rarity": 2, "formula_req": {"Na": 1, "Ca": 1, "Al": 2, "Si": 1}, "impurity": [], "score": 1.8540722084731369e-06, "prob": 0.044386}, {"id": "wulfenite", "name_ko": "울페나이트", "price_tier": 3, "rarity": 3, "formula_req": {"Pb": 1, "Mo": 1}, "impurity": [], "score": 1.6419918367346945e-06, "prob": 0.039309}, {"id": "hessonite", "name_ko": "헤소나이트 가넷", "price_tier": 2, "rarity": 2, "formula_req": {"Ca": 2, "Al": 1, "Si": 1}, "impurity": ["Fe", "Mn"], "score": 1.5033017906538944e-06, "prob": 0.035989}, {"id": "spessartite", "name_ko": "스페사타이트 가넷", "price_tier": 3, "rarity": 3, "formula_req": {"Mn": 2, "Al": 1, "Si": 1}, "impurity": [], "score": 1.469197998647231e-06, "prob": 0.035172}, {"id": "spinel_red", "name_ko": "레드 스피넬", "price_tier": 4, "rarity": 4, "formula_req": {"Mg": 1, "Al": 2}, "impurity": ["Cr"], "score": 1.438532838517285e-06, "prob": 0.034438}, {"id": "topaz_blue", "name_ko": "블루 토파즈", "price_tier": 2, "rarity": 2, "formula_req": {"Al": 2, "F": 1, "Si": 1}, "impurity": ["Fe"], "score": 1.327985603865057e-06, "prob": 0.031792}, {"id": "gaspeite", "name_ko": "가스페이트", "price_tier": 3, "rarity": 3, "formula_req": {"Ni": 1, "C": 1}, "impurity": [], "score": 1.3135934693877555e-06, "prob": 0.031447}, {"id": "pearl_black", "name_ko": "타히티안 펄", "price_tier": 4, "rarity": 4, "formula_req": {"Ca": 1, "C": 1}, "impurity": ["Mn"], "score": 1.2945744755685136e-06, "prob": 0.030992}, {"id": "danburite", "name_ko": "단부라이트", "price_tier": 2, "rarity": 2, "formula_req": {"Ca": 1, "B": 2, "Si": 1}, "impurity": [], "score": 1.2927656676384843e-06, "prob": 0.030948}, {"id": "amber", "name_ko": "호박 (앰버)", "price_tier": 2, "rarity": 2, "formula_req": {"C": 3}, "impurity": [], "score": 1.253590950437318e-06, "prob": 0.030011}, {"id": "spinel_lavender", "name_ko": "라벤더 스피넬", "price_tier": 3, "rarity": 3, "formula_req": {"Mg": 1, "Al": 2}, "impurity": ["V"], "score": 1.2111063707455232e-06, "prob": 0.028994}, {"id": "amazonite", "name_ko": "아마조나이트", "price_tier": 1, "rarity": 1, "formula_req": {"K": 1, "Al": 1, "Si": 1}, "impurity": ["Pb"], "score": 1.1457331200000002e-06, "prob": 0.027429}, {"id": "musgravite", "name_ko": "머스그래바이트", "price_tier": 5, "rarity": 5, "formula_req": {"Be": 1, "Mg": 1, "Al": 2}, "impurity": [], "score": 8.299910024156608e-07, "prob": 0.01987}, {"id": "taaffeite", "name_ko": "타파이트", "price_tier": 5, "rarity": 5, "formula_req": {"Be": 1, "Mg": 1, "Al": 2}, "impurity": [], "score": 8.299910024156608e-07, "prob": 0.01987}, {"id": "kunzite", "name_ko": "쿤자이트", "price_tier": 3, "rarity": 3, "formula_req": {"Li": 1, "Al": 1, "Si": 1}, "impurity": ["Mn"], "score": 5.749035646880469e-07, "prob": 0.013763}, {"id": "larimar", "name_ko": "라리마르", "price_tier": 3, "rarity": 3, "formula_req": {"Na": 1, "Ca": 2, "Si": 2}, "impurity": [], "score": 5.179239333601401e-07, "prob": 0.012399}, {"id": "iolite", "name_ko": "아이올라이트", "price_tier": 2, "rarity": 2, "formula_req": {"Mg": 1, "Al": 2, "Si": 2}, "impurity": ["Fe"], "score": 4.780748173914203e-07, "prob": 0.011445}, {"id": "alexandrite", "name_ko": "알렉산드라이트", "price_tier": 5, "rarity": 5, "formula_req": {"Be": 1, "Al": 2}, "impurity": ["Cr"], "score": 4.2421762345689336e-07, "prob": 0.010156}, {"id": "mali_garnet", "name_ko": "말리 가넷", "price_tier": 4, "rarity": 4, "formula_req": {"Ca": 2, "Al": 1, "Fe": 1, "Si": 1}, "impurity": [], "score": 4.084229694548872e-07, "prob": 0.009778}, {"id": "topaz_pink", "name_ko": "핑크 토파즈", "price_tier": 3, "rarity": 3, "formula_req": {"Al": 2, "F": 1, "Si": 1}, "impurity": ["Cr"], "score": 4.0517013130395695e-07, "prob": 0.0097}, {"id": "lapis_lazuli", "name_ko": "청금석", "price_tier": 2, "rarity": 2, "formula_req": {"Na": 1, "Al": 1, "S": 1, "Si": 1}, "impurity": [], "score": 3.98602747521866e-07, "prob": 0.009542}, {"id": "diopside", "name_ko": "크롬 다이옵사이드", "price_tier": 2, "rarity": 2, "formula_req": {"Ca": 1, "Mg": 1, "Si": 2}, "impurity": ["Cr"], "score": 3.568033242682217e-07, "prob": 0.008542}, {"id": "hiddenite", "name_ko": "히드나이트", "price_tier": 4, "rarity": 4, "formula_req": {"Li": 1, "Al": 1, "Si": 1}, "impurity": ["Cr"], "score": 3.2658583360932955e-07, "prob": 0.007818}, {"id": "tsavorite", "name_ko": "차보라이트 가넷", "price_tier": 4, "rarity": 4, "formula_req": {"Ca": 2, "Al": 1, "Si": 1}, "impurity": ["V", "Cr"], "score": 2.6704578772050323e-07, "prob": 0.006393}, {"id": "aquamarine", "name_ko": "아쿠아마린", "price_tier": 3, "rarity": 3, "formula_req": {"Be": 2, "Al": 1, "Si": 1}, "impurity": ["Fe"], "score": 2.510436038001767e-07, "prob": 0.00601}, {"id": "heliodor", "name_ko": "헬리오도르", "price_tier": 3, "rarity": 3, "formula_req": {"Be": 2, "Al": 1, "Si": 1}, "impurity": ["Fe"], "score": 2.510436038001767e-07, "prob": 0.00601}, {"id": "topaz_imperial", "name_ko": "임페리얼 토파즈", "price_tier": 4, "rarity": 4, "formula_req": {"Al": 2, "F": 1, "Si": 1}, "impurity": ["Cr"], "score": 2.3016525416276566e-07, "prob": 0.00551}, {"id": "azurite", "name_ko": "아주라이트", "price_tier": 2, "rarity": 2, "formula_req": {"Cu": 2, "C": 1}, "impurity": [], "score": 2.176373177842566e-07, "prob": 0.00521}, {"id": "rhodolite", "name_ko": "로도라이트 가넷", "price_tier": 3, "rarity": 2, "formula_req": {"Mg": 1, "Fe": 1, "Al": 1, "Si": 1}, "impurity": ["Mn"], "score": 2.0671500566923785e-07, "prob": 0.004949}, {"id": "fluorite_purple", "name_ko": "퍼플 플루오라이트", "price_tier": 1, "rarity": 1, "formula_req": {"Ca": 1, "F": 2}, "impurity": ["Mn"], "score": 1.918613211428572e-07, "prob": 0.004593}, {"id": "nephrite", "name_ko": "연옥", "price_tier": 3, "rarity": 2, "formula_req": {"Ca": 1, "Mg": 2, "Si": 1}, "impurity": ["Fe"], "score": 1.4428755977382759e-07, "prob": 0.003454}, {"id": "morganite", "name_ko": "모르가나이트", "price_tier": 3, "rarity": 3, "formula_req": {"Be": 2, "Al": 1, "Si": 1}, "impurity": ["Mn"], "score": 1.1103851706546278e-07, "prob": 0.002658}, {"id": "tourmaline_green", "name_ko": "그린 토르말린", "price_tier": 3, "rarity": 2, "formula_req": {"Na": 1, "Al": 2, "B": 1, "Si": 1}, "impurity": ["Fe", "Cr"], "score": 6.02959918590873e-08, "prob": 0.001443}, {"id": "emerald", "name_ko": "에메랄드", "price_tier": 5, "rarity": 4, "formula_req": {"Be": 2, "Al": 1, "Si": 1}, "impurity": ["Cr", "V"], "score": 5.997979689795923e-08, "prob": 0.001436}, {"id": "tourmaline_watermelon", "name_ko": "수박 토르말린", "price_tier": 3, "rarity": 3, "formula_req": {"Na": 1, "Al": 2, "B": 1, "Si": 1}, "impurity": ["Mn", "Fe"], "score": 4.982837639638724e-08, "prob": 0.001193}, {"id": "uvarovite", "name_ko": "우바로바이트 가넷", "price_tier": 3, "rarity": 3, "formula_req": {"Ca": 2, "Cr": 2, "Si": 1}, "impurity": [], "score": 3.9535607611473906e-08, "prob": 0.000946}, {"id": "tourmaline_indicolite", "name_ko": "인디콜라이트", "price_tier": 3, "rarity": 3, "formula_req": {"Na": 1, "Al": 2, "B": 1, "Si": 1}, "impurity": ["Fe"], "score": 3.454767430149515e-08, "prob": 0.000827}, {"id": "kornerupine", "name_ko": "코르네루핀", "price_tier": 4, "rarity": 4, "formula_req": {"Mg": 1, "Al": 2, "B": 1, "Si": 1}, "impurity": ["Fe"], "score": 2.6762071788366285e-08, "prob": 0.000641}, {"id": "clinohumite", "name_ko": "클리노휴마이트", "price_tier": 4, "rarity": 4, "formula_req": {"Mg": 3, "F": 1, "Si": 1}, "impurity": [], "score": 2.66444040849646e-08, "prob": 0.000638}, {"id": "turquoise", "name_ko": "터키석", "price_tier": 3, "rarity": 2, "formula_req": {"Ca": 2, "P": 1, "Cu": 1}, "impurity": [], "score": 2.2609161787921703e-08, "prob": 0.000541}, {"id": "red_beryl", "name_ko": "레드 베릴", "price_tier": 5, "rarity": 5, "formula_req": {"Be": 2, "Al": 1, "Si": 1}, "impurity": ["Mn"], "score": 2.14631186786839e-08, "prob": 0.000514}, {"id": "bixbite", "name_ko": "빅스바이트", "price_tier": 5, "rarity": 5, "formula_req": {"Be": 2, "Al": 1, "Si": 1}, "impurity": ["Mn"], "score": 2.14631186786839e-08, "prob": 0.000514}, {"id": "tanzanite", "name_ko": "탄자나이트", "price_tier": 4, "rarity": 4, "formula_req": {"Ca": 2, "Al": 2, "Si": 1}, "impurity": ["V"], "score": 1.8266829512982323e-08, "prob": 0.000437}, {"id": "jeremejevite", "name_ko": "예레메예바이트", "price_tier": 5, "rarity": 5, "formula_req": {"Al": 2, "B": 2, "F": 1}, "impurity": [], "score": 1.459324839412151e-08, "prob": 0.000349}, {"id": "tourmaline_rubellite", "name_ko": "루벨라이트", "price_tier": 4, "rarity": 3, "formula_req": {"Na": 1, "Al": 2, "B": 1, "Si": 1}, "impurity": ["Mn"], "score": 1.1847512494047105e-08, "prob": 0.000284}, {"id": "grandidierite", "name_ko": "그란디디에라이트", "price_tier": 5, "rarity": 5, "formula_req": {"Mg": 1, "Al": 2, "B": 1, "Si": 1}, "impurity": ["Fe"], "score": 9.106186997931822e-09, "prob": 0.000218}, {"id": "sugilite", "name_ko": "수길라이트", "price_tier": 3, "rarity": 3, "formula_req": {"K": 1, "Na": 1, "Li": 1, "Si": 1}, "impurity": ["Fe", "Mn"], "score": 8.025680785539362e-09, "prob": 0.000192}, {"id": "painite", "name_ko": "파이나이트", "price_tier": 5, "rarity": 5, "formula_req": {"Ca": 1, "Zr": 1, "Al": 2, "B": 1}, "impurity": [], "score": 6.421029293413465e-09, "prob": 0.000154}, {"id": "paraiba", "name_ko": "파라이바 토르말린", "price_tier": 5, "rarity": 5, "formula_req": {"Na": 1, "Al": 1, "B": 1, "Si": 1}, "impurity": ["Cu"], "score": 6.0739466289046294e-09, "prob": 0.000145}, {"id": "tourmaline_black", "name_ko": "숄 (블랙 투르말린)", "price_tier": 1, "rarity": 1, "formula_req": {"Na": 1, "Fe": 2, "Al": 2, "B": 1, "Si": 1}, "impurity": [], "score": 4.033235898122002e-09, "prob": 9.7e-05}, {"id": "apatite", "name_ko": "아파타이트", "price_tier": 2, "rarity": 2, "formula_req": {"Ca": 2, "P": 1, "F": 1}, "impurity": ["Mn"], "score": 2.135965478612484e-09, "prob": 5.1e-05}, {"id": "diamond", "name_ko": "다이아몬드", "price_tier": 5, "rarity": 5, "formula_req": {"C": 5}, "impurity": [], "score": 1.2574796407325524e-10, "prob": 3e-06}], "elem_supply": {"Si": 210, "Al": 185, "Ca": 66, "Fe": 52, "Mg": 45, "Be": 39, "Na": 33, "F": 30, "B": 30, "H": 27, "C": 24, "Cr": 23, "Mn": 23, "K": 21, "V": 11, "Cu": 10, "Pb": 10, "Li": 9, "Ti": 8, "Zr": 6, "P": 6, "S": 3, "Mo": 3, "Ni": 1}};
+
+function fmtProb(p){
+  if(p >= 1)     return p.toFixed(1) + '%';
+  if(p >= 0.1)   return p.toFixed(2) + '%';
+  if(p >= 0.01)  return p.toFixed(3) + '%';
+  if(p >= 0.001) return p.toFixed(4) + '%';
+  if(p > 0)      return '<0.001%';
+  return '0%';
+}
+function tierClass(p){
+  if(p>=60) return 'tier-s';
+  if(p>=20) return 'tier-a';
+  if(p>=8)  return 'tier-b';
+  if(p>=2)  return 'tier-c';
+  return 'tier-d';
+}
+
+// 원소 색상
+const ELEM_COLORS = {
+  O:'#FF6B6B',Si:'#F0C898',Al:'#C8B4C8',Ca:'#3DFF00',
+  Mg:'#8AFF00',Be:'#D4FF70',Na:'#AB5CF2',F:'#A8E06A',
+  B:'#FFB5B5',H:'#DDEEFF',C:'#AAAAAA',K:'#8F40D4',
+  Fe:'#FF8C42',Cr:'#8A99C7',Cu:'#C88033',Mn:'#9C7AC7',
+  Li:'#CC80FF',Pb:'#757575',Zr:'#94DCFF',P:'#FF8000',
+  V:'#A6A6AB',S:'#FFFF30',Ti:'#BFC2C7',Mo:'#54B5B5',Ni:'#A8C890',
+};
+
+// Bar chart
+const barsDiv = document.getElementById('bars');
+DATA.gems.forEach((g,i) => {
+  const tc = tierClass(g.prob);
+  const fc = g.formula_req||{};
+  const fcStr = Object.entries(fc).map(([e,n])=>n>1?`${e}×${n}`:e).join('+');
+  const impStr = (g.impurity||[]).join('/');
+  const elemStr = fcStr + (impStr ? ' +'+impStr : '');
+  const row = document.createElement('div');
+  row.className = 'bar-row';
+  row.innerHTML = `
+    <div class="bar-name" title="${g.name}">${g.name_ko}</div>
+    <div class="bar-track">
+      <div class="bar-fill ${tc}" style="width:${g.prob}%"></div>
+    </div>
+    <div class="bar-pct">${fmtProb(g.prob)}</div>
+    <div class="bar-elem">${elemStr}</div>`;
+  barsDiv.appendChild(row);
+
+  // 구분선: S/A, A/B, B/C, D 경계
+  const next = DATA.gems[i+1];
+  if(next){
+    const curTier = tierClass(g.prob);
+    const nextTier = tierClass(next.prob);
+    if(curTier !== nextTier){
+      const hr = document.createElement('hr');
+      hr.className = 'divider';
+      barsDiv.appendChild(hr);
+    }
+  }
+});
+
+// 원소 빈도
+const efDiv = document.getElementById('elem-freq');
+const sorted = Object.entries(DATA.elem_supply).sort((a,b)=>b[1]-a[1]);
+const maxSupply = sorted.length > 0 ? sorted[0][1] : 1;
+sorted.forEach(([sym, pct])=>{
+  const row = document.createElement('div');
+  row.className = 'elem-row';
+  const col = ELEM_COLORS[sym] || '#888';
+  const barW = Math.round(pct / maxSupply * 100);
+  row.innerHTML = `
+    <div class="elem-sym" style="color:${col}">${sym}</div>
+    <div class="elem-bar"><div class="elem-bar-fill" style="width:${barW}%;background:${col};opacity:.8"></div></div>
+    <div class="elem-pct">${pct}</div>`;
+  efDiv.appendChild(row);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1679 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lapidary</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  :root {
+    --bg:#0e0e0e; --surface:#181818; --ink:#e2dfd8;
+    --dim:#6a6760; --line:#2e2e2e; --accent:#c8a96e; --spark:#e2c98c;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);}
+  body{font-family:'Pretendard',sans-serif;color:var(--ink);display:flex;flex-direction:column;}
+
+  /* HEADER */
+  header{position:absolute;top:0;left:0;right:0;z-index:10;
+    padding:28px 40px 0;display:flex;justify-content:space-between;
+    align-items:flex-start;pointer-events:none;}
+  .wordmark{font-family:'Cormorant Garamond',serif;font-size:13px;font-weight:400;
+    letter-spacing:.35em;text-transform:uppercase;color:var(--accent);opacity:.9;}
+  .tagline{font-size:9px;letter-spacing:.12em;color:var(--dim);margin-top:4px;text-transform:uppercase;}
+  .gem-count{font-size:9px;letter-spacing:.1em;color:var(--dim);text-align:right;}
+  .gem-count span{display:block;font-size:22px;font-family:'Cormorant Garamond',serif;
+    font-style:italic;color:var(--ink);opacity:.5;line-height:1;margin-bottom:2px;}
+
+  /* AXIS SWITCHER */
+  .axis-switcher{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);
+    z-index:10;display:flex;gap:2px;background:rgba(20,20,20,.88);
+    border:1px solid var(--line);padding:4px;backdrop-filter:blur(8px);}
+  .axis-btn{font-family:'Pretendard',sans-serif;font-size:9px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--dim);background:transparent;
+    border:1px solid transparent;padding:6px 14px;cursor:pointer;
+    transition:all .2s;white-space:nowrap;}
+  .axis-btn:hover{color:var(--ink);}
+  .axis-btn.active{color:var(--accent);border-color:rgba(200,169,110,.3);
+    background:rgba(200,169,110,.06);}
+
+  /* SVG */
+  #stage{width:100%;height:100%;}
+
+  /* TOOLTIP */
+  #tooltip{position:absolute;pointer-events:none;opacity:0;
+    transition:opacity .15s;z-index:20;width:220px;}
+  #tooltip.visible{opacity:1;}
+  .tt-inner{background:rgba(20,20,20,.96);border:1px solid rgba(200,169,110,.25);
+    padding:14px 16px;backdrop-filter:blur(12px);}
+  .tt-name{font-family:'Pretendard',sans-serif;font-weight:700;font-size:18px;line-height:1.1;margin-bottom:2px;}
+  .tt-name-ko{font-size:9px;letter-spacing:.1em;color:var(--dim);margin-bottom:10px;}
+  .tt-row{display:flex;justify-content:space-between;font-size:9px;
+    letter-spacing:.08em;margin-bottom:4px;color:var(--dim);}
+  .tt-row span:last-child{color:var(--ink);}
+  .tt-formula{font-family:'Pretendard',sans-serif;font-size:10px;color:var(--accent);
+    margin-top:8px;letter-spacing:.04em;}
+  .tt-lore{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:12px;
+    line-height:1.5;color:rgba(226,223,216,.5);margin-top:10px;
+    border-top:1px solid var(--line);padding-top:10px;}
+  .tt-progress{margin-top:10px;border-top:1px solid var(--line);padding-top:8px;}
+  .tt-progress-label{font-size:8px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);margin-bottom:5px;}
+  .tt-progress-bar{height:1px;background:var(--line);position:relative;}
+  .tt-progress-fill{position:absolute;top:0;left:0;height:1px;
+    background:var(--accent);transition:width .25s ease-out;}
+  .tt-progress-val{font-size:9px;color:var(--spark);margin-top:4px;letter-spacing:.08em;}
+
+  /* SELECTED PANEL */
+  #selected-panel{position:absolute;top:80px;right:40px;width:200px;
+    opacity:0;transition:opacity .3s;pointer-events:none;z-index:10;}
+  #selected-panel.visible{opacity:1;}
+  .sp-label{font-size:8px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--dim);margin-bottom:8px;}
+  .sp-name{font-family:'Pretendard',sans-serif;font-weight:700;font-size:26px;line-height:1.1;margin-bottom:2px;}
+  .sp-ko{font-size:9px;letter-spacing:.1em;color:var(--dim);margin-bottom:14px;}
+  .sp-stat{margin-bottom:6px;}
+  .sp-stat-label{font-size:8px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--dim);margin-bottom:2px;}
+  .sp-bar-track{height:1px;background:var(--line);position:relative;}
+  .sp-bar-fill{position:absolute;top:0;left:0;height:1px;
+    transition:width .4s cubic-bezier(.4,0,.2,1);}
+  .sp-lore{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:12px;
+    line-height:1.6;color:rgba(226,223,216,.5);margin-top:14px;}
+
+  /* FLOAT COUNT */
+  #float-count{position:absolute;left:50%;top:18px;transform:translateX(-50%);
+    font-size:9px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase;
+    opacity:0;transition:opacity .5s;pointer-events:none;z-index:10;}
+  #float-count.on{opacity:1;}
+  #float-count b{color:var(--spark);font-weight:400;}
+
+  /* RING LABELS */
+  .ring-label{font-size:8px;letter-spacing:.12em;fill:var(--dim);
+    text-transform:uppercase;opacity:.5;}
+
+  /* ELEMENT GLYPHS */
+  .elemGlyph text{font-family:'Pretendard',sans-serif;pointer-events:none;text-anchor:middle;}
+
+  .interaction-mode{
+    position:fixed;bottom:32px;right:40px;
+    z-index:10;display:flex;gap:2px;
+    background:rgba(14,14,14,.88);
+    border:1px solid var(--line);padding:4px;
+    backdrop-filter:blur(8px);
+  }
+  .mode-btn{
+    font-family:'Pretendard',sans-serif;font-size:9px;
+    letter-spacing:.12em;text-transform:uppercase;
+    color:var(--dim);background:transparent;
+    border:1px solid transparent;padding:6px 14px;
+    cursor:pointer;transition:all .2s;white-space:nowrap;
+  }
+  .mode-btn:hover{color:var(--ink);}
+  .mode-btn.active{
+    color:var(--accent);border-color:rgba(200,169,110,.3);
+    background:rgba(200,169,110,.06);
+  }
+  /* ACTIVITY LOG */
+  #activity-log{
+    position:fixed;left:38px;bottom:80px;
+    pointer-events:none;z-index:9999;
+    display:flex;flex-direction:column;gap:6px;
+    max-width:500px;
+  }
+  .log-entry{
+    display:flex;align-items:center;gap:5px;flex-wrap:wrap;
+    opacity:0;animation:logIn .35s ease-out forwards;
+  }
+  .log-entry.removing{ animation:logOut .5s ease-in forwards; }
+  .log-entry.destroy{ border-left:2px solid rgba(220,90,70,.55);padding-left:8px; }
+  .log-entry.synth  { border-left:2px solid rgba(80,200,140,.55);padding-left:8px; }
+  .log-badge{
+    font-size:8px;font-weight:700;letter-spacing:.08em;
+    padding:2px 6px;border-radius:3px;flex-shrink:0;
+  }
+  .log-badge.destroy{
+    background:rgba(220,90,70,.14);color:#e07060;
+    border:1px solid rgba(220,90,70,.35);
+  }
+  .log-badge.synth{
+    background:rgba(80,200,140,.12);color:#60c890;
+    border:1px solid rgba(80,200,140,.35);
+  }
+  .log-gem-box{
+    display:flex;align-items:center;gap:5px;
+    padding:4px 9px;border-radius:5px;border:1px solid;
+    font-family:'Pretendard',sans-serif;font-size:10px;font-weight:600;
+    letter-spacing:.03em;white-space:nowrap;
+  }
+  .log-gem-dot{ width:6px;height:6px;border-radius:50%;flex-shrink:0; }
+  .log-gem-name{ color:var(--ink); }
+  .log-arrow{ color:var(--dim);font-size:10px;flex-shrink:0;opacity:.6; }
+  .log-elements{ display:flex;gap:3px;flex-wrap:wrap; }
+  .log-elem{
+    padding:3px 6px;border-radius:5px;border:1px solid;
+    font-family:'Pretendard',sans-serif;font-size:9px;font-weight:500;
+    letter-spacing:.04em;
+  }
+  @keyframes logIn{
+    from{opacity:0;transform:translateX(-18px);}
+    to  {opacity:1;transform:translateX(0);}
+  }
+  @keyframes logOut{
+    from{opacity:1;transform:translateY(0);}
+    to  {opacity:0;transform:translateY(-14px);}
+  }
+
+  /* HARBINGER */
+  @keyframes harbPulse {
+    0%   { opacity:0;    transform:scale(1.15); }
+    18%  { opacity:0.65; transform:scale(1.0);  }
+    100% { opacity:0;    transform:scale(0.12); }
+  }
+  .harbinger-ring {
+    transform-box:fill-box; transform-origin:center;
+    animation: harbPulse 1.3s ease-in forwards;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="wordmark">Lapidary</div>
+    <div class="tagline">보석 색상 아틀라스</div>
+  </div>
+  <div class="gem-count"><span id="count-num">—</span>종</div>
+</header>
+
+<svg id="stage"></svg>
+
+<div class="axis-switcher">
+  <button class="axis-btn active" data-axis="color">색상</button>
+  <button class="axis-btn" data-axis="price">가격</button>
+  <button class="axis-btn" data-axis="hardness">경도</button>
+  <button class="axis-btn" data-axis="rarity">희소도</button>
+  <button class="axis-btn" data-axis="origin">원산지</button>
+</div>
+
+<div class="interaction-mode">
+  <button class="mode-btn active" data-mode="single">단일 선택</button>
+  <button class="mode-btn" data-mode="area">범위 파괴</button>
+</div>
+
+<div id="tooltip">
+  <div class="tt-inner">
+    <div class="tt-name" id="tt-name"></div>
+    <div class="tt-name-ko" id="tt-name-ko"></div>
+    <div class="tt-row"><span>원산지</span><span id="tt-origin"></span></div>
+    <div class="tt-row"><span>경도</span><span id="tt-hard"></span></div>
+    <div class="tt-row"><span>가격대</span><span id="tt-price"></span></div>
+    <div class="tt-row"><span>희소도</span><span id="tt-rarity"></span></div>
+    <div class="tt-formula" id="tt-formula"></div>
+    <div class="tt-progress">
+      <div class="tt-progress-label">파괴 저항</div>
+      <div class="tt-progress-bar"><div class="tt-progress-fill" id="tt-pfill"></div></div>
+      <div class="tt-progress-val" id="tt-pval"></div>
+    </div>
+    <div class="tt-lore" id="tt-lore"></div>
+  </div>
+</div>
+
+<div id="selected-panel">
+  <div class="sp-label">선택된 보석</div>
+  <div class="sp-name" id="sp-name"></div>
+  <div class="sp-ko" id="sp-ko"></div>
+  <div class="sp-stat">
+    <div class="sp-stat-label">경도</div>
+    <div class="sp-bar-track"><div class="sp-bar-fill" id="sp-bar-hard"></div></div>
+  </div>
+  <div class="sp-stat">
+    <div class="sp-stat-label">희소도</div>
+    <div class="sp-bar-track"><div class="sp-bar-fill" id="sp-bar-rarity"></div></div>
+  </div>
+  <div class="sp-stat">
+    <div class="sp-stat-label">가격대</div>
+    <div class="sp-bar-track"><div class="sp-bar-fill" id="sp-bar-price"></div></div>
+  </div>
+  <div class="sp-lore" id="sp-lore"></div>
+</div>
+
+<div id="float-count">부유 원소 <b>0</b></div>
+<div id="activity-log"></div>
+
+<script>
+// ══ ELEMENT DATA (원자량 + 색) ══════════════════════════════════════
+const ELEMENT_DATA = {
+  H:  {mass:1.008,  color:"#DDEEFF"},
+  Li: {mass:6.941,  color:"#CC80FF"},
+  B:  {mass:10.811, color:"#FFB5B5"},
+  Be: {mass:9.012,  color:"#D4FF70"},
+  C:  {mass:12.011, color:"#AAAAAA"},
+  O:  {mass:15.999, color:"#FF6B6B"},
+  F:  {mass:18.998, color:"#A8E06A"},
+  Na: {mass:22.990, color:"#AB5CF2"},
+  Mg: {mass:24.305, color:"#8AFF00"},
+  Al: {mass:26.982, color:"#C8B4C8"},
+  Si: {mass:28.085, color:"#F0C898"},
+  P:  {mass:30.974, color:"#FF8000"},
+  S:  {mass:32.06,  color:"#FFFF30"},
+  K:  {mass:39.098, color:"#8F40D4"},
+  Ca: {mass:40.078, color:"#3DFF00"},
+  Ti: {mass:47.867, color:"#BFC2C7"},
+  V:  {mass:50.942, color:"#A6A6AB"},
+  Cr: {mass:51.996, color:"#8A99C7"},
+  Mn: {mass:54.938, color:"#9C7AC7"},
+  Fe: {mass:55.845, color:"#FF8C42"},
+  Cu: {mass:63.546, color:"#C88033"},
+  Zr: {mass:91.224, color:"#94DCFF"},
+  Mo: {mass:95.95,  color:"#54B5B5"},
+  Ni: {mass:58.693, color:"#A8C890"},  // 니켈 — 가스페이트·크리소프레이즈 발색
+  Pb: {mass:207.2,  color:"#757575"},
+};
+const BASE_OMEGA = 0.00015; // rad/ms — H 기준. omega = BASE_OMEGA / sqrt(mass) / sqrt(r0/outerR) — 케플러 근사
+
+// ══ 카테고리 → 화학식/원소 매핑 ═════════════════════════════════════
+const CAT_ELEM = {
+  corundum:     {f:"Al\u2082O\u2083",              e:["Al","O"]},
+  beryl:        {f:"Be\u2083Al\u2082Si\u2086O\u2081\u2088", e:["Be","Al","Si","O"]},
+  garnet:       {f:"X\u2083Y\u2082(SiO\u2084)\u2083",e:["Fe","Al","Si","O"]},
+  chrysoberyl:  {f:"BeAl\u2082O\u2084",            e:["Be","Al","O"]},
+  quartz:       {f:"SiO\u2082",                    e:["Si","O"]},
+  mineraloid:   {f:"SiO\u2082\u00b7nH\u2082O",     e:["Si","O","H"]},
+  cyclosilicate:{f:"NaX\u2083Al\u2086(BO\u2083)\u2083Si\u2086O\u2081\u2088",e:["Si","Al","O","B"]},
+  nesosilicate: {f:"Al\u2082SiO\u2084(F,OH)\u2082", e:["Al","Si","O","F"]},
+  oxide:        {f:"MgAl\u2082O\u2084",             e:["Mg","Al","O"]},
+  sorosilicate: {f:"Ca\u2082Al\u2083(SiO\u2084)\u2083OH",e:["Ca","Al","Si","O"]},
+  pyroxene:     {f:"LiAlSi\u2082O\u2086",           e:["Li","Al","Si","O"]},
+  inosilicate:  {f:"Ca\u2082Mg\u2085Si\u2088O\u2082\u2082(OH)\u2082",e:["Ca","Mg","Si","O"]},
+  phyllosilicate:{f:"KAl\u2082(Si\u2083Al)O\u2081\u2080(OH)\u2082",e:["K","Al","Si","O"]},
+  tectosilicate:{f:"(Na,Ca)Al(Si,Al)\u2083O\u2088", e:["Na","Ca","Al","Si","O"]},
+  feldspar:     {f:"(K,Na)AlSi\u2083O\u2088",       e:["K","Na","Al","Si","O"]},
+  organic:      {f:"CaCO\u2083",                    e:["Ca","C","O"]},
+  carbonate:    {f:"CaCO\u2083",                    e:["Ca","C","O"]},
+  phosphate:    {f:"Ca\u2085(PO\u2084)\u2083F",      e:["Ca","P","O","F"]},
+  vanadate:     {f:"Pb\u2085(VO\u2084)\u2083Cl",     e:["Pb","V","O"]},
+  molybdate:    {f:"PbMoO\u2084",                   e:["Pb","Mo","O"]},
+  chromate:     {f:"PbCrO\u2084",                   e:["Pb","Cr","O"]},
+  borate:       {f:"CaZrBAl\u2089O\u2081\u2088",    e:["Ca","Al","B","O"]},
+  halide:       {f:"CaF\u2082",                     e:["Ca","F"]},
+  glass:        {f:"SiO\u2082",                     e:["Si","O"]},
+  rock:         {f:"(Na,Ca)\u2088Al\u2086Si\u2086O\u2082\u2084S\u2083",e:["Na","Al","Si","O","S"]},
+};
+const GEM_OVERRIDE = {
+  diamond:    {f:"C",                      e:["C","C","C","C","C"]},
+  amber:      {f:"C\u2081\u2080H\u2081\u2086O", e:["C","H","O"]},
+  pearl:      {f:"CaCO\u2083",             e:["Ca","C","O"]},
+  pearl_black:{f:"CaCO\u2083",             e:["Ca","C","O"]},
+  paraiba:    {f:"Cu-NaAl\u2086Si\u2086O\u2081\u2088(BO\u2083)\u2083",e:["Si","Al","O","Cu"]},
+  alexandrite:{f:"BeAl\u2082O\u2084 (Cr)",  e:["Be","Al","O","Cr"]},
+  zircon_blue:{f:"ZrSiO\u2084",            e:["Zr","Si","O"]},
+  zircon_red: {f:"ZrSiO\u2084",            e:["Zr","Si","O"]},
+  tourmaline_black:{f:"NaFe\u2083Al\u2086(BO\u2083)\u2083Si\u2086O\u2081\u2088(OH)\u2084",e:["Na","Fe","Al","Si","O","B"]},
+  musgravite:{f:"Mg\u2082BeAl\u2086O\u2081\u2082",e:["Be","Mg","Al","O"]},
+  taaffeite:{f:"BeMg\u2083Al\u2088O\u2081\u2086",e:["Be","Mg","Al","O"]},
+  zultanite:{f:"AlO(OH)",e:["Al","O","H"]},
+  peridot:{f:"(Mg,Fe)\u2082SiO\u2084",e:["Mg","Fe","Si","O"]},
+  kyanite:{f:"Al\u2082SiO\u2085",e:["Al","Si","O"]},
+  grandidierite:{f:"(Mg,Fe)Al\u2083(BO\u2083)(SiO\u2084)O\u2082",e:["Mg","Al","B","Si","O"]},
+  phenakite:{f:"Be\u2082SiO\u2084",e:["Be","Si","O"]},
+  sphene:{f:"CaTiSiO\u2085",e:["Ca","Ti","Si","O"]},
+  clinohumite:{f:"Mg\u2089(SiO\u2084)\u2084(F,OH)\u2082",e:["Mg","Si","O","F"]},
+  danburite:{f:"CaB\u2082Si\u2082O\u2088",e:["Ca","B","Si","O"]},
+  demantoid:{f:"Ca\u2083Fe\u2082(SiO\u2084)\u2083",e:["Ca","Fe","Si","O"]},
+  tsavorite:{f:"Ca\u2083Al\u2082(SiO\u2084)\u2083",e:["Ca","Al","Si","O"]},
+  grossular:{f:"Ca\u2083Al\u2082(SiO\u2084)\u2083",e:["Ca","Al","Si","O"]},
+  hessonite:{f:"Ca\u2083Al\u2082(SiO\u2084)\u2083",e:["Ca","Al","Si","O"]},
+  uvarovite:{f:"Ca\u2083Cr\u2082(SiO\u2084)\u2083",e:["Ca","Cr","Si","O"]},
+  mali_garnet:{f:"Ca\u2083(Al,Fe)\u2082(SiO\u2084)\u2083",e:["Ca","Al","Fe","Si","O"]},
+  rhodolite:{f:"(Mg,Fe)\u2083Al\u2082(SiO\u2084)\u2083",e:["Mg","Fe","Al","Si","O"]},
+  spessartite:{f:"Mn\u2083Al\u2082(SiO\u2084)\u2083",e:["Mn","Al","Si","O"]},
+  pyrope:{f:"Mg\u2083Al\u2082(SiO\u2084)\u2083",e:["Mg","Al","Si","O"]},
+  malachite:{f:"Cu\u2082CO\u2083(OH)\u2082",e:["Cu","C","O","H"]},
+  azurite:{f:"Cu\u2083(CO\u2083)\u2082(OH)\u2082",e:["Cu","C","O","H"]},
+  rhodochrosite:{f:"MnCO\u2083",e:["Mn","C","O"]},
+  iolite:{f:"(Mg,Fe)\u2082Al\u2084Si\u2085O\u2081\u2088",e:["Mg","Al","Si","O"]},
+  sugilite:{f:"KNa\u2082(Fe,Mn)\u2082Li\u2083Si\u2081\u2082O\u2083\u2080",e:["K","Na","Li","Si","O"]},
+  jadeite:{f:"NaAlSi\u2082O\u2086",e:["Na","Al","Si","O"]},
+  rhodonite:{f:"MnSiO\u2083",e:["Mn","Si","O"]},
+  diopside:{f:"CaMgSi\u2082O\u2086",e:["Ca","Mg","Si","O"]},
+  larimar:{f:"NaCa\u2082Si\u2083O\u2088(OH)",e:["Na","Ca","Si","O","H"]},
+  kornerupine:{f:"Mg\u2083Al\u2086(BO\u2083)(Si\u2083O\u2081\u2086)(OH)",e:["Mg","Al","Si","B","O"]},
+  jeremejevite:{f:"Al\u2086B\u2085O\u2081\u2085(F,OH)\u2083",e:["Al","B","O","F"]},
+  cavansite:{f:"Ca(VO)Si\u2084O\u2081\u2080\u00b74H\u2082O",e:["Ca","V","Si","O","H"]},
+};
+
+// ══ GEM DATA (from lapidary_1, deduplicated) ═════════════════════════
+const GEMS_RAW = [
+  {"id":"diamond","name":"Diamond","name_ko":"\ub2e4\uc774\uc544\ubaac\ub4dc","hex":"#F8F6F0","hue":60,"chroma":3,"lightness":97,"hardness":10,"price_tier":5,"origin_primary":"Botswana","category":"oxide","rarity":5,"lore":"The hardest substance on Earth, formed 150km below the surface over billions of years."},
+  {"id":"ruby","name":"Ruby","name_ko":"\ub8e8\ube44","hex":"#E0115F","hue":345,"chroma":85,"lightness":42,"hardness":9,"price_tier":5,"origin_primary":"Myanmar","category":"corundum","rarity":5,"lore":"Pigeon's blood rubies from Myanmar's Mogok Valley are the rarest colored stones on Earth."},
+  {"id":"sapphire_blue","name":"Blue Sapphire","name_ko":"\ube14\ub8e8 \uc0ac\ud30c\uc774\uc5b4","hex":"#0F52BA","hue":225,"chroma":80,"lightness":36,"hardness":9,"price_tier":5,"origin_primary":"Kashmir","category":"corundum","rarity":5,"lore":"Kashmir sapphires, mined only briefly in the 1880s, remain the benchmark for cornflower blue."},
+  {"id":"emerald","name":"Emerald","name_ko":"\uc5d0\uba54\ub784\ub4dc","hex":"#50C878","hue":145,"chroma":70,"lightness":58,"hardness":7.5,"price_tier":5,"origin_primary":"Colombia","category":"beryl","rarity":4,"lore":"Colombian Muzo emeralds have a warmth and depth that no other deposit has replicated."},
+  {"id":"alexandrite","name":"Alexandrite","name_ko":"\uc54c\ub809\uc0b0\ub4dc\ub77c\uc774\ud2b8","hex":"#568203","hue":85,"chroma":60,"lightness":38,"hardness":8.5,"price_tier":5,"origin_primary":"Russia","category":"chrysoberyl","rarity":5,"lore":"Changes from green in daylight to red under incandescent light."},
+  {"id":"padparadscha","name":"Padparadscha Sapphire","name_ko":"\ud30c\ub4dc\ud30c\ub77c\ucc28","hex":"#FF7043","hue":18,"chroma":88,"lightness":60,"hardness":9,"price_tier":5,"origin_primary":"Sri Lanka","category":"corundum","rarity":5,"lore":"Named after the lotus blossom, this salmon-pink sapphire is among the rarest on earth."},
+  {"id":"musgravite","name":"Musgravite","name_ko":"\uba38\uc2a4\uadf8\ub798\ubc14\uc774\ud2b8","hex":"#7B9E87","hue":145,"chroma":22,"lightness":52,"hardness":8,"price_tier":5,"origin_primary":"Australia","category":"oxide","rarity":5,"lore":"Fewer than 20 gem-quality specimens are known to exist worldwide."},
+  {"id":"red_beryl","name":"Red Beryl","name_ko":"\ub808\ub4dc \ubca0\ub9b4","hex":"#C0392B","hue":4,"chroma":75,"lightness":38,"hardness":7.5,"price_tier":5,"origin_primary":"USA","category":"beryl","rarity":5,"lore":"Found only in Utah's Wah Wah Mountains; 8,000 times rarer than gold."},
+  {"id":"jadeite","name":"Imperial Jadeite","name_ko":"\uc784\ud398\ub9ac\uc5bc \uc81c\uc774\ub2e4\uc774\ud2b8","hex":"#00A86B","hue":155,"chroma":70,"lightness":50,"hardness":7,"price_tier":5,"origin_primary":"Myanmar","category":"pyroxene","rarity":5,"lore":"Imperial green jadeite commands prices exceeding finest rubies in Asian markets."},
+  {"id":"tanzanite","name":"Tanzanite","name_ko":"\ud0c4\uc790\ub098\uc774\ud2b8","hex":"#4D5EAE","hue":235,"chroma":55,"lightness":44,"hardness":6.5,"price_tier":4,"origin_primary":"Tanzania","category":"sorosilicate","rarity":4,"lore":"Found in a single 5km square area near Mount Kilimanjaro, discovered only in 1967."},
+  {"id":"paraiba","name":"Paraiba Tourmaline","name_ko":"\ud30c\ub77c\uc774\ubc14 \ud1a0\ub974\ub9d0\ub9b0","hex":"#00CFCF","hue":180,"chroma":90,"lightness":58,"hardness":7.5,"price_tier":5,"origin_primary":"Brazil","category":"cyclosilicate","rarity":5,"lore":"Its neon electric-blue glow comes from copper — so intense it seems to emit its own light."},
+  {"id":"demantoid","name":"Demantoid Garnet","name_ko":"\ub514\ub9cc\ud1a0\uc774\ub4dc \uac00\ub137","hex":"#28B463","hue":140,"chroma":78,"lightness":48,"hardness":6.5,"price_tier":4,"origin_primary":"Russia","category":"garnet","rarity":4,"lore":"Has higher dispersion than diamond; Russian stones feature distinctive 'horsetail' inclusions."},
+  {"id":"spinel_red","name":"Red Spinel","name_ko":"\ub808\ub4dc\u0020\uc2a4\ud53c\ub12c","hex":"#CF1020","hue":352,"chroma":80,"lightness":36,"hardness":8,"price_tier":4,"origin_primary":"Myanmar","category":"oxide","rarity":4,"lore":"Long mistaken for rubies; the Black Prince's Ruby in the British Crown Jewels is a spinel."},
+  {"id":"tsavorite","name":"Tsavorite Garnet","name_ko":"\ucc28\ubcf4\ub77c\uc774\ud2b8 \uac00\ub137","hex":"#3CB371","hue":150,"chroma":72,"lightness":50,"hardness":7,"price_tier":4,"origin_primary":"Kenya","category":"garnet","rarity":4,"lore":"Discovered in 1967 near Tsavo National Park; rivals emerald in green intensity."},
+  {"id":"opal_black","name":"Black Opal","name_ko":"\ube14\ub799\u0020\uc624\ud314","hex":"#1C1C2E","hue":240,"chroma":15,"lightness":16,"hardness":5.5,"price_tier":4,"origin_primary":"Australia","category":"mineraloid","rarity":4,"lore":"Lightning Ridge black opals display every spectral color against a dark body — living fire."},
+  {"id":"aquamarine","name":"Aquamarine","name_ko":"\uc544\ucfe0\uc544\ub9c8\ub9b0","hex":"#7FFFD4","hue":160,"chroma":55,"lightness":80,"hardness":7.5,"price_tier":3,"origin_primary":"Brazil","category":"beryl","rarity":3,"lore":"Sailors wore it for protection at sea; its name means 'water of the sea' in Latin."},
+  {"id":"morganite","name":"Morganite","name_ko":"\ubaa8\ub974\uac00\ub098\uc774\ud2b8","hex":"#F4A7B9","hue":345,"chroma":40,"lightness":80,"hardness":7.5,"price_tier":3,"origin_primary":"Brazil","category":"beryl","rarity":3,"lore":"Named after financier J.P. Morgan; its peach-pink hue is caused by manganese."},
+  {"id":"heliodor","name":"Heliodor","name_ko":"\ud5ec\ub9ac\uc624\ub3c4\ub974","hex":"#F0C040","hue":46,"chroma":75,"lightness":68,"hardness":7.5,"price_tier":3,"origin_primary":"Brazil","category":"beryl","rarity":3,"lore":"Golden beryl named after the sun; large flawless crystals are found in Ukraine's Volyn deposit."},
+  {"id":"goshenite","name":"Goshenite","name_ko":"\uace0\uc258\ub098\uc774\ud2b8","hex":"#F5F5F0","hue":60,"chroma":4,"lightness":96,"hardness":7.5,"price_tier":2,"origin_primary":"Brazil","category":"beryl","rarity":2,"lore":"Colorless beryl; used as spectacle lenses in the Middle Ages before glass was widely available."},
+  {"id":"bixbite","name":"Bixbite","name_ko":"\ube45\uc2a4\ubc14\uc774\ud2b8","hex":"#AA336A","hue":330,"chroma":68,"lightness":40,"hardness":7.5,"price_tier":5,"origin_primary":"USA","category":"beryl","rarity":5,"lore":"So rare that one gem-quality crystal is found per 150,000 topaz crystals in the same deposit."},
+  {"id":"spessartite","name":"Spessartite Garnet","name_ko":"\uc2a4\ud398\uc0ac\ud0c0\uc774\ud2b8 \uac00\ub137","hex":"#FF6B2B","hue":22,"chroma":88,"lightness":56,"hardness":7,"price_tier":3,"origin_primary":"Nigeria","category":"garnet","rarity":3,"lore":"Mandarin garnets from Namibia display an electric orange that rivals padparadscha sapphires."},
+  {"id":"hessonite","name":"Hessonite Garnet","name_ko":"\ud5e4\uc18c\ub098\uc774\ud2b8 \uac00\ub137","hex":"#D2691E","hue":28,"chroma":70,"lightness":46,"hardness":7,"price_tier":2,"origin_primary":"Sri Lanka","category":"garnet","rarity":2,"lore":"Called 'cinnamon stone'; its warm brown-orange is caused by iron and manganese."},
+  {"id":"almandine","name":"Almandine Garnet","name_ko":"\uc54c\ub9cc\ub518 \uac00\ub137","hex":"#8B0000","hue":0,"chroma":65,"lightness":28,"hardness":7.5,"price_tier":2,"origin_primary":"India","category":"garnet","rarity":2,"lore":"The most common garnet; used as abrasive in waterjet cutting and sandpaper."},
+  {"id":"pyrope","name":"Pyrope Garnet","name_ko":"\ud30c\uc774\ub85c\ud504 \uac00\ub137","hex":"#9B1B30","hue":350,"chroma":72,"lightness":32,"hardness":7.5,"price_tier":2,"origin_primary":"Czech Republic","category":"garnet","rarity":2,"lore":"Bohemian garnets set in small clusters were a beloved ornament in Victorian jewelry."},
+  {"id":"grossular","name":"Grossular Garnet","name_ko":"\uadf8\ub85c\uc290\ub77c \uac00\ub137","hex":"#A8D5A2","hue":128,"chroma":28,"lightness":68,"hardness":7,"price_tier":2,"origin_primary":"Kenya","category":"garnet","rarity":2,"lore":"Named after the botanical Latin for gooseberry; comes in nearly every color except blue."},
+  {"id":"uvarovite","name":"Uvarovite Garnet","name_ko":"\uc6b0\ubc14\ub85c\ubc14\uc774\ud2b8 \uac00\ub137","hex":"#1A7A3C","hue":142,"chroma":72,"lightness":36,"hardness":7.5,"price_tier":3,"origin_primary":"Russia","category":"garnet","rarity":3,"lore":"Vivid emerald-green garnet that rarely grows large enough to facet as individual gems."},
+  {"id":"sapphire_yellow","name":"Yellow Sapphire","name_ko":"\uc610\ub85c\u0020\uc0ac\ud30c\uc774\uc5b4","hex":"#FFD700","hue":50,"chroma":88,"lightness":65,"hardness":9,"price_tier":4,"origin_primary":"Sri Lanka","category":"corundum","rarity":3,"lore":"Used in Vedic astrology as the stone of Jupiter; unheated Sri Lankan stones are highly prized."},
+  {"id":"sapphire_pink","name":"Pink Sapphire","name_ko":"\ud551\ud06c \uc0ac\ud30c\uc774\uc5b4","hex":"#FF69B4","hue":330,"chroma":75,"lightness":65,"hardness":9,"price_tier":4,"origin_primary":"Sri Lanka","category":"corundum","rarity":3,"lore":"The line between pink sapphire and ruby is defined by chromium content."},
+  {"id":"sapphire_orange","name":"Orange Sapphire","name_ko":"\uc624\ub80c\uc9c0 \uc0ac\ud30c\uc774\uc5b4","hex":"#FF8C00","hue":35,"chroma":90,"lightness":58,"hardness":9,"price_tier":3,"origin_primary":"Tanzania","category":"corundum","rarity":3,"lore":"Orange sapphires derive color from iron; the line with padparadscha is subjectively drawn."},
+  {"id":"sapphire_purple","name":"Purple Sapphire","name_ko":"\ud37c\ud50c \uc0ac\ud30c\uc774\uc5b4","hex":"#800080","hue":300,"chroma":65,"lightness":28,"hardness":9,"price_tier":3,"origin_primary":"Sri Lanka","category":"corundum","rarity":3,"lore":"Color shifts between blue and red under different lighting; caused by vanadium."},
+  {"id":"sapphire_green","name":"Green Sapphire","name_ko":"\uadf8\ub9b0 \uc0ac\ud30c\uc774\uc5b4","hex":"#2E8B57","hue":145,"chroma":55,"lightness":38,"hardness":9,"price_tier":3,"origin_primary":"Australia","category":"corundum","rarity":3,"lore":"Iron causes the green color; Australian material tends toward teal, Thai toward olive."},
+  {"id":"topaz_imperial","name":"Imperial Topaz","name_ko":"\uc784\ud398\ub9ac\uc5bc \ud1a0\ud30c\uc988","hex":"#FFA500","hue":38,"chroma":85,"lightness":60,"hardness":8,"price_tier":4,"origin_primary":"Brazil","category":"nesosilicate","rarity":4,"lore":"Found only in Ouro Preto, Brazil; once reserved for Russian royalty."},
+  {"id":"topaz_blue","name":"Blue Topaz","name_ko":"\ube14\ub8e8 \ud1a0\ud30c\uc988","hex":"#4169E1","hue":225,"chroma":68,"lightness":52,"hardness":8,"price_tier":2,"origin_primary":"Brazil","category":"nesosilicate","rarity":2,"lore":"Most blue topaz is irradiation-treated; natural blue specimens are extremely rare."},
+  {"id":"topaz_pink","name":"Pink Topaz","name_ko":"\ud551\ud06c \ud1a0\ud30c\uc988","hex":"#FF91AF","hue":342,"chroma":62,"lightness":72,"hardness":8,"price_tier":3,"origin_primary":"Pakistan","category":"nesosilicate","rarity":3,"lore":"Natural pink topaz from Pakistan's Katlang area is among the rarest topaz varieties."},
+  {"id":"topaz_colorless","name":"White Topaz","name_ko":"\ud654\uc774\ud2b8 \ud1a0\ud30c\uc988","hex":"#F8F8FF","hue":240,"chroma":3,"lightness":98,"hardness":8,"price_tier":1,"origin_primary":"Brazil","category":"nesosilicate","rarity":1,"lore":"Colorless topaz is used as a diamond substitute, though it scratches far more easily."},
+  {"id":"tourmaline_rubellite","name":"Rubellite Tourmaline","name_ko":"\ub8e8\ubca8\ub77c\uc774\ud2b8","hex":"#E0115F","hue":340,"chroma":80,"lightness":42,"hardness":7.5,"price_tier":4,"origin_primary":"Brazil","category":"cyclosilicate","rarity":3,"lore":"Must maintain its red color in all lighting conditions to earn the 'rubellite' designation."},
+  {"id":"tourmaline_green","name":"Green Tourmaline","name_ko":"\uadf8\ub9b0 \ud1a0\ub974\ub9d0\ub9b0","hex":"#228B22","hue":138,"chroma":68,"lightness":35,"hardness":7.5,"price_tier":3,"origin_primary":"Brazil","category":"cyclosilicate","rarity":2,"lore":"Chrome tourmaline from Tanzania rivals tsavorite; iron-green Brazilian material is abundant."},
+  {"id":"tourmaline_indicolite","name":"Indicolite Tourmaline","name_ko":"\uc778\ub514\ucf5c\ub77c\uc774\ud2b8","hex":"#1C6EA4","hue":210,"chroma":72,"lightness":38,"hardness":7.5,"price_tier":3,"origin_primary":"Brazil","category":"cyclosilicate","rarity":3,"lore":"Teal to blue tourmaline; the finest pieces approach paraiba color without the neon intensity."},
+  {"id":"tourmaline_watermelon","name":"Watermelon Tourmaline","name_ko":"\uc218\ubc15 \ud1a0\ub974\ub9d0\ub9b0","hex":"#FC6C85","hue":352,"chroma":68,"lightness":62,"hardness":7.5,"price_tier":3,"origin_primary":"Brazil","category":"cyclosilicate","rarity":3,"lore":"Pink center with green rind; sliced crystals resemble watermelon cross-sections exactly."},
+  {"id":"tourmaline_black","name":"Schorl","name_ko":"\uc204\u0020\u0028\ube14\ub799\u0020\ud22c\ub974\ub9d0\ub9b0\u0029","hex":"#1C1C1C","hue":0,"chroma":5,"lightness":12,"hardness":7.5,"price_tier":1,"origin_primary":"Brazil","category":"cyclosilicate","rarity":1,"lore":"The most common tourmaline; used as a piezoelectric component."},
+  {"id":"peridot","name":"Peridot","name_ko":"\ud398\ub9ac\ub3c4\ud2b8","hex":"#ADFF2F","hue":80,"chroma":90,"lightness":68,"hardness":6.5,"price_tier":2,"origin_primary":"Pakistan","category":"nesosilicate","rarity":2,"lore":"One of the only gems formed in the Earth's mantle, not crust; also found in meteorites."},
+  {"id":"chrysoberyl","name":"Chrysoberyl","name_ko":"\ud06c\ub9ac\uc18c\ubca0\ub9b4","hex":"#DAA520","hue":44,"chroma":72,"lightness":56,"hardness":8.5,"price_tier":3,"origin_primary":"Brazil","category":"chrysoberyl","rarity":3,"lore":"Cats-eye chrysoberyl is the standard by which all other chatoyant stones are judged."},
+  {"id":"cats_eye","name":"Cats Eye Chrysoberyl","name_ko":"\ucea3\uce20\uc544\uc774\u0020\ud06c\ub9ac\uc18c\ubca0\ub9b4","hex":"#C5A028","hue":42,"chroma":68,"lightness":50,"hardness":8.5,"price_tier":4,"origin_primary":"Sri Lanka","category":"chrysoberyl","rarity":4,"lore":"The moving band of light (chatoyancy) looks exactly like a feline pupil in strong light."},
+  {"id":"zircon_blue","name":"Blue Zircon","name_ko":"\ube14\ub8e8 \uc9c0\ub974\ucf58","hex":"#5B9BD5","hue":212,"chroma":58,"lightness":56,"hardness":7.5,"price_tier":3,"origin_primary":"Cambodia","category":"nesosilicate","rarity":3,"lore":"Higher dispersion than diamond; Cambodian blue zircon was hugely fashionable in Art Deco jewelry."},
+  {"id":"zircon_red","name":"Red Zircon","name_ko":"\ub808\ub4dc \uc9c0\ub974\ucf58","hex":"#B22222","hue":0,"chroma":72,"lightness":34,"hardness":7.5,"price_tier":3,"origin_primary":"Sri Lanka","category":"nesosilicate","rarity":3,"lore":"Contains trace uranium; the oldest crystals are 4.4 billion years old."},
+  {"id":"spinel_blue","name":"Blue Spinel","name_ko":"\ube14\ub8e8\u0020\uc2a4\ud53c\ub12c","hex":"#3457D5","hue":230,"chroma":72,"lightness":40,"hardness":8,"price_tier":4,"origin_primary":"Myanmar","category":"oxide","rarity":4,"lore":"Cobalt blue spinel is among the most vivid of all blue gemstones; understated prestige."},
+  {"id":"spinel_lavender","name":"Lavender Spinel","name_ko":"\ub77c\ubca4\ub354\u0020\uc2a4\ud53c\ub12c","hex":"#B57EDC","hue":280,"chroma":52,"lightness":58,"hardness":8,"price_tier":3,"origin_primary":"Myanmar","category":"oxide","rarity":3,"lore":"Pastel purple spinel is gaining recognition as an affordable yet distinctive collector's gem."},
+  {"id":"iolite","name":"Iolite","name_ko":"\uc544\uc774\uc62c\ub77c\uc774\ud2b8","hex":"#5046E4","hue":248,"chroma":72,"lightness":44,"hardness":7,"price_tier":2,"origin_primary":"India","category":"cyclosilicate","rarity":2,"lore":"Called the 'Viking compass'; its strong pleochroism helped navigate."},
+  {"id":"kyanite","name":"Kyanite","name_ko":"\uce74\uc774\uc544\ub098\uc774\ud2b8","hex":"#4B9CD3","hue":208,"chroma":62,"lightness":52,"hardness":5,"price_tier":2,"origin_primary":"Nepal","category":"nesosilicate","rarity":2,"lore":"Has two different hardness values depending on crystal direction — unique in mineralogy."},
+  {"id":"rhodonite","name":"Rhodonite","name_ko":"\ub85c\ub3c4\ub098\uc774\ud2b8","hex":"#E25098","hue":330,"chroma":72,"lightness":52,"hardness":5.5,"price_tier":2,"origin_primary":"Russia","category":"pyroxene","rarity":2,"lore":"Deep pink with black manganese oxide veining; named from Greek rhodon, meaning 'rose'."},
+  {"id":"rhodochrosite","name":"Rhodochrosite","name_ko":"\ub85c\ub3c4\ud06c\ub85c\uc0ac\uc774\ud2b8","hex":"#E8587A","hue":348,"chroma":75,"lightness":60,"hardness":3.5,"price_tier":3,"origin_primary":"Argentina","category":"carbonate","rarity":3,"lore":"Stalactites from Argentina's Capillitas mine show concentric pink and white banding."},
+  {"id":"kunzite","name":"Kunzite","name_ko":"\ucfe4\uc790\uc774\ud2b8","hex":"#DA8EC0","hue":320,"chroma":50,"lightness":66,"hardness":6.5,"price_tier":3,"origin_primary":"Afghanistan","category":"pyroxene","rarity":3,"lore":"Named after gemologist G.F. Kunz; strong pleochroism and a satiny pink-violet luster."},
+  {"id":"hiddenite","name":"Hiddenite","name_ko":"\ud788\ub4dc\ub098\uc774\ud2b8","hex":"#88C070","hue":108,"chroma":45,"lightness":60,"hardness":6.5,"price_tier":4,"origin_primary":"USA","category":"pyroxene","rarity":4,"lore":"Green spodumene named after W.E. Hidden; large transparent crystals are extremely rare."},
+  {"id":"amethyst","name":"Amethyst","name_ko":"\uc790\uc218\uc815","hex":"#9966CC","hue":280,"chroma":52,"lightness":50,"hardness":7,"price_tier":2,"origin_primary":"Brazil","category":"quartz","rarity":2,"lore":"Believed to prevent intoxication; the word comes from Greek 'amethystos'."},
+  {"id":"citrine","name":"Citrine","name_ko":"\ud669\uc218\uc815","hex":"#E4A00A","hue":44,"chroma":82,"lightness":54,"hardness":7,"price_tier":1,"origin_primary":"Brazil","category":"quartz","rarity":1,"lore":"Most citrine is heat-treated amethyst; natural citrine from Bolivia's Anahi mine is prized."},
+  {"id":"smoky_quartz","name":"Smoky Quartz","name_ko":"\ud751\uc218\uc815","hex":"#6B4F3A","hue":26,"chroma":30,"lightness":34,"hardness":7,"price_tier":1,"origin_primary":"Brazil","category":"quartz","rarity":1,"lore":"Scottish cairngorm (dark smoky quartz) is the national gem of Scotland by tradition."},
+  {"id":"rose_quartz","name":"Rose Quartz","name_ko":"\uc7a5\ubbf8\uc218\uc815","hex":"#F7CAC9","hue":4,"chroma":22,"lightness":84,"hardness":7,"price_tier":1,"origin_primary":"Brazil","category":"quartz","rarity":1,"lore":"Rarely found as single transparent crystals; massive rose quartz is colored by titanium."},
+  {"id":"prasiolite","name":"Prasiolite","name_ko":"\ud504\ub77c\uc2dc\uc62c\ub77c\uc774\ud2b8","hex":"#A8C5A0","hue":118,"chroma":25,"lightness":64,"hardness":7,"price_tier":1,"origin_primary":"Brazil","category":"quartz","rarity":2,"lore":"Amethyst turned green by heat; natural prasiolite occurs only in Montezuma, Brazil."},
+  {"id":"chalcedony_blue","name":"Blue Chalcedony","name_ko":"\ube14\ub8e8 \uce7c\uc138\ub3c4\ub2c8","hex":"#B0C4DE","hue":210,"chroma":28,"lightness":72,"hardness":6.5,"price_tier":1,"origin_primary":"Turkey","category":"quartz","rarity":1,"lore":"Turkish blue chalcedony, called 'Holly Blue,' is prized for its soft powder-blue tone."},
+  {"id":"chrysoprase","name":"Chrysoprase","name_ko":"\ud06c\ub9ac\uc18c\ud504\ub808\uc774\uc988","hex":"#5CBB47","hue":115,"chroma":62,"lightness":52,"hardness":6.5,"price_tier":2,"origin_primary":"Australia","category":"quartz","rarity":2,"lore":"Finest apple-green chalcedony from Western Australia; favored by Alexander the Great."},
+  {"id":"carnelian","name":"Carnelian","name_ko":"\uce74\ub12c\ub9ac\uc548","hex":"#B94E3A","hue":10,"chroma":65,"lightness":46,"hardness":6.5,"price_tier":1,"origin_primary":"Brazil","category":"quartz","rarity":1,"lore":"Used in signet rings since ancient Egypt; Napoleon wore a carnelian talisman."},
+  {"id":"onyx","name":"Onyx","name_ko":"\uc624\ub2c9\uc2a4","hex":"#353839","hue":200,"chroma":5,"lightness":20,"hardness":6.5,"price_tier":1,"origin_primary":"Brazil","category":"quartz","rarity":1,"lore":"Black onyx became synonymous with mourning jewelry in the Victorian era."},
+  {"id":"tigers_eye","name":"Tiger's Eye","name_ko":"\ud638\uc548\uc11d","hex":"#B8860B","hue":44,"chroma":65,"lightness":40,"hardness":7,"price_tier":1,"origin_primary":"South Africa","category":"quartz","rarity":1,"lore":"Chatoyant golden-brown quartz; the silky shimmer comes from parallel crocidolite fibers."},
+  {"id":"labradorite","name":"Labradorite","name_ko":"\ub77c\ube0c\ub77c\ub3c4\ub77c\uc774\ud2b8","hex":"#2A3F5F","hue":218,"chroma":35,"lightness":26,"hardness":6,"price_tier":2,"origin_primary":"Canada","category":"feldspar","rarity":2,"lore":"Produces iridescent labradorescence; Inuit legend says it fell from the Northern Lights."},
+  {"id":"moonstone","name":"Moonstone","name_ko":"\uc6d4\uc7a5\uc11d","hex":"#E8E8F0","hue":240,"chroma":8,"lightness":90,"hardness":6,"price_tier":2,"origin_primary":"Sri Lanka","category":"feldspar","rarity":2,"lore":"Blue adularescence is caused by light scattering between albite layers."},
+  {"id":"sunstone","name":"Sunstone","name_ko":"\uc120\uc2a4\ud1a4","hex":"#E8A830","hue":40,"chroma":72,"lightness":60,"hardness":6,"price_tier":2,"origin_primary":"Norway","category":"feldspar","rarity":2,"lore":"Copper platelets in Oregon sunstone create aventurescence — a metallic glitter effect."},
+  {"id":"spectrolite","name":"Spectrolite","name_ko":"\uc2a4\ud399\ud2b8\ub864\ub77c\uc774\ud2b8","hex":"#1E3A5F","hue":220,"chroma":42,"lightness":22,"hardness":6,"price_tier":3,"origin_primary":"Finland","category":"feldspar","rarity":3,"lore":"Found only in Finland; displays the full spectrum of labradorescence across a single stone."},
+  {"id":"amazonite","name":"Amazonite","name_ko":"\uc544\ub9c8\uc870\ub098\uc774\ud2b8","hex":"#3D9B8A","hue":172,"chroma":52,"lightness":44,"hardness":6,"price_tier":1,"origin_primary":"Russia","category":"feldspar","rarity":1,"lore":"Turquoise-green feldspar; color comes from lead and water trapped during crystal formation."},
+  {"id":"lapis_lazuli","name":"Lapis Lazuli","name_ko":"\uccad\uae08\uc11d","hex":"#003399","hue":225,"chroma":70,"lightness":25,"hardness":5.5,"price_tier":2,"origin_primary":"Afghanistan","category":"rock","rarity":2,"lore":"Ground into ultramarine pigment — the most expensive color in Renaissance painting."},
+  {"id":"malachite","name":"Malachite","name_ko":"\uacf5\uc791\uc11d","hex":"#0BDA51","hue":147,"chroma":82,"lightness":48,"hardness":3.5,"price_tier":2,"origin_primary":"Congo","category":"carbonate","rarity":2,"lore":"Concentric green banding; the Malachite Room in the Hermitage is covered in 20 tons of it."},
+  {"id":"azurite","name":"Azurite","name_ko":"\uc544\uc8fc\ub77c\uc774\ud2b8","hex":"#1B3F8B","hue":225,"chroma":72,"lightness":30,"hardness":3.5,"price_tier":2,"origin_primary":"Morocco","category":"carbonate","rarity":2,"lore":"Deep azure-blue copper mineral; used by medieval and Renaissance painters."},
+  {"id":"rhodolite","name":"Rhodolite Garnet","name_ko":"\ub85c\ub3c4\ub77c\uc774\ud2b8 \uac00\ub137","hex":"#C0392B","hue":352,"chroma":70,"lightness":38,"hardness":7.5,"price_tier":3,"origin_primary":"Tanzania","category":"garnet","rarity":2,"lore":"Rose-raspberry garnet; a hybrid of pyrope and almandine."},
+  {"id":"mali_garnet","name":"Mali Garnet","name_ko":"\ub9d0\ub9ac \uac00\ub137","hex":"#C8A028","hue":46,"chroma":72,"lightness":52,"hardness":7,"price_tier":4,"origin_primary":"Mali","category":"garnet","rarity":4,"lore":"A rare grossular-andradite hybrid found only in Mali; strong dispersion creates fire."},
+  {"id":"taaffeite","name":"Taaffeite","name_ko":"\ud0c0\ud30c\uc774\ud2b8","hex":"#B4A0C8","hue":275,"chroma":28,"lightness":62,"hardness":8,"price_tier":5,"origin_primary":"Sri Lanka","category":"oxide","rarity":5,"lore":"One of the rarest gems on Earth; the only mineral first identified as a cut gemstone."},
+  {"id":"painite","name":"Painite","name_ko":"\ud30c\uc774\ub098\uc774\ud2b8","hex":"#8B1A1A","hue":5,"chroma":58,"lightness":28,"hardness":8,"price_tier":5,"origin_primary":"Myanmar","category":"borate","rarity":5,"lore":"Once the world's rarest mineral; only 3 known crystals until 2005."},
+  {"id":"grandidierite","name":"Grandidierite","name_ko":"\uadf8\ub780\ub514\ub514\uc5d0\ub77c\uc774\ud2b8","hex":"#4ECDC4","hue":176,"chroma":58,"lightness":56,"hardness":7.5,"price_tier":5,"origin_primary":"Madagascar","category":"nesosilicate","rarity":5,"lore":"Blue-green trichroic mineral; gem-quality pieces are excessively rare."},
+  {"id":"jeremejevite","name":"Jeremejevite","name_ko":"\uc608\ub808\uba54\uc608\ubc14\uc774\ud2b8","hex":"#A8D8EA","hue":200,"chroma":38,"lightness":75,"hardness":6.5,"price_tier":5,"origin_primary":"Namibia","category":"borate","rarity":5,"lore":"Sky-blue crystals from Namibia; one of the world's ten rarest minerals."},
+  {"id":"phenakite","name":"Phenakite","name_ko":"\ud398\ub098\uce74\uc774\ud2b8","hex":"#FAFAFA","hue":60,"chroma":2,"lightness":98,"hardness":7.5,"price_tier":4,"origin_primary":"Russia","category":"nesosilicate","rarity":4,"lore":"Colorless beryllium silicate with higher refractive index than topaz; confused with diamond."},
+  {"id":"diopside","name":"Chrome Diopside","name_ko":"\ud06c\ub86c\u0020\ub2e4\uc774\uc635\uc0ac\uc774\ub4dc","hex":"#1C5C1C","hue":130,"chroma":65,"lightness":28,"hardness":5.5,"price_tier":2,"origin_primary":"Russia","category":"pyroxene","rarity":2,"lore":"Siberian chrome diopside rivals emerald in green intensity at a fraction of the price."},
+  {"id":"sphene","name":"Sphene","name_ko":"\uc2a4\ud398 (\ud0c0\uc774\ud0c0\ub098\uc774\ud2b8)","hex":"#C8A000","hue":46,"chroma":78,"lightness":50,"hardness":5,"price_tier":3,"origin_primary":"Brazil","category":"nesosilicate","rarity":3,"lore":"Dispersion exceeding diamond makes sphene spectacular; soft hardness limits its wearability."},
+  {"id":"clinohumite","name":"Clinohumite","name_ko":"\ud074\ub9ac\ub178\ud734\ub9c8\uc774\ud2b8","hex":"#E8880A","hue":38,"chroma":82,"lightness":56,"hardness":6,"price_tier":4,"origin_primary":"Tajikistan","category":"nesosilicate","rarity":4,"lore":"Vivid orange gemstone from Tajikistan's Pamirs; transparent facetable pieces are extremely scarce."},
+  {"id":"zultanite","name":"Zultanite","name_ko":"\uc904\ud0c0\ub098\uc774\ud2b8","hex":"#B8E0A0","hue":105,"chroma":38,"lightness":72,"hardness":6.5,"price_tier":4,"origin_primary":"Turkey","category":"oxide","rarity":4,"lore":"Color-change gem found only in Turkey; shifts from kiwi green to champagne pink by light source."},
+  {"id":"fluorite","name":"Fluorite","name_ko":"\ud615\uc11d (\ud50c\ub8e8\uc624\ub77c\uc774\ud2b8)","hex":"#7CFC00","hue":90,"chroma":88,"lightness":62,"hardness":4,"price_tier":1,"origin_primary":"China","category":"halide","rarity":1,"lore":"'Blue John' fluorite from Derbyshire, England, has been carved for 2000 years."},
+  {"id":"fluorite_purple","name":"Purple Fluorite","name_ko":"\ud37c\ud50c \ud50c\ub8e8\uc624\ub77c\uc774\ud2b8","hex":"#6A0DAD","hue":278,"chroma":72,"lightness":34,"hardness":4,"price_tier":1,"origin_primary":"China","category":"halide","rarity":1,"lore":"Fluorite gave its name to fluorescence; deep purple specimens glow bright blue under UV."},
+  {"id":"sugilite","name":"Sugilite","name_ko":"\uc218\uae38\ub77c\uc774\ud2b8","hex":"#8B008B","hue":300,"chroma":68,"lightness":28,"hardness":6,"price_tier":3,"origin_primary":"South Africa","category":"cyclosilicate","rarity":3,"lore":"Vivid purple stone found mainly in South Africa's Kalahari; only discovered in 1944."},
+  {"id":"charoite","name":"Charoite","name_ko":"\ucc28\ub85c\uc544\uc774\ud2b8","hex":"#8B5FBF","hue":280,"chroma":55,"lightness":42,"hardness":5,"price_tier":3,"origin_primary":"Russia","category":"phyllosilicate","rarity":3,"lore":"Found only along the Chara River in Siberia; swirling lavender patterns are unique."},
+  {"id":"larimar","name":"Larimar","name_ko":"\ub77c\ub9ac\ub9c8\ub974","hex":"#7EC8E3","hue":200,"chroma":48,"lightness":68,"hardness":5,"price_tier":3,"origin_primary":"Dominican Republic","category":"pyroxene","rarity":3,"lore":"Found only in a single mine in the Dominican Republic; the 'Atlantis Stone' of the Caribbean."},
+  {"id":"opal_white","name":"White Opal","name_ko":"\ud654\uc774\ud2b8\u0020\uc624\ud314","hex":"#F5F5F5","hue":200,"chroma":6,"lightness":95,"hardness":5.5,"price_tier":2,"origin_primary":"Australia","category":"mineraloid","rarity":2,"lore":"Australia produces 95% of the world's opals; the play of color comes from silica sphere diffraction."},
+  {"id":"opal_fire","name":"Fire Opal","name_ko":"\ud30c\uc774\uc5b4\u0020\uc624\ud314","hex":"#FF4500","hue":16,"chroma":88,"lightness":52,"hardness":5.5,"price_tier":3,"origin_primary":"Mexico","category":"mineraloid","rarity":3,"lore":"Mexican fire opal is the only opal prized primarily for body color rather than play of color."},
+  {"id":"spinel_pink","name":"Pink Spinel","name_ko":"\ud551\ud06c\u0020\uc2a4\ud53c\ub12c","hex":"#FFC0CB","hue":345,"chroma":42,"lightness":80,"hardness":8,"price_tier":3,"origin_primary":"Myanmar","category":"oxide","rarity":3,"lore":"Burmese hot pink spinel is prized by couture jewelers seeking an alternative to pink sapphire."},
+  {"id":"pearl","name":"Pearl","name_ko":"\uc9c4\uc8fc","hex":"#F0EAD6","hue":46,"chroma":10,"lightness":88,"hardness":2.5,"price_tier":3,"origin_primary":"Japan","category":"organic","rarity":3,"lore":"Natural pearls are now essentially extinct in the wild; Mikimoto perfected culturing in 1893."},
+  {"id":"pearl_black","name":"Tahitian Pearl","name_ko":"\ud0c0\ud788\ud2f0\uc548\u0020\ud384","hex":"#2C2C2C","hue":0,"chroma":5,"lightness":18,"hardness":2.5,"price_tier":4,"origin_primary":"French Polynesia","category":"organic","rarity":4,"lore":"Dark black to green, blue, and purple overtones; produced only by the black-lipped oyster."},
+  {"id":"amber","name":"Amber","name_ko":"\ud638\ubc15\u0020\u0028\uc570\ubc84\u0029","hex":"#FFBF00","hue":44,"chroma":80,"lightness":62,"hardness":2.5,"price_tier":2,"origin_primary":"Baltic","category":"organic","rarity":2,"lore":"Fossilized tree resin up to 320 million years old; Baltic amber sometimes contains intact insects."},
+  {"id":"nephrite","name":"Nephrite Jade","name_ko":"\uc5f0\uc625","hex":"#3B7A3B","hue":130,"chroma":50,"lightness":36,"hardness":6.5,"price_tier":3,"origin_primary":"China","category":"inosilicate","rarity":2,"lore":"Tougher than steel due to interlocking fibrous crystals; Chinese culture prized it above all gems."},
+  {"id":"moldavite","name":"Moldavite","name_ko":"\ubab0\ub2e4\ubc14\uc774\ud2b8","hex":"#285C28","hue":125,"chroma":58,"lightness":26,"hardness":5.5,"price_tier":3,"origin_primary":"Czech Republic","category":"glass","rarity":3,"lore":"Formed 14.7 million years ago by a meteorite impact; extraterrestrial."},
+  {"id":"wulfenite","name":"Wulfenite","name_ko":"\uc6b8\ud398\ub098\uc774\ud2b8","hex":"#FF6600","hue":24,"chroma":92,"lightness":52,"hardness":3,"price_tier":3,"origin_primary":"Mexico","category":"molybdate","rarity":3,"lore":"Brilliant orange-red tabular crystals from Los Lamentos, Mexico."},
+  {"id":"kornerupine","name":"Kornerupine","name_ko":"\ucf54\ub974\ub124\ub8e8\ud540","hex":"#3B8E3B","hue":120,"chroma":58,"lightness":38,"hardness":6.5,"price_tier":4,"origin_primary":"Sri Lanka","category":"sorosilicate","rarity":4,"lore":"Rarely found in gem quality; strong pleochroism shows green, brown, and yellow simultaneously."},
+  {"id":"scapolite","name":"Scapolite","name_ko":"\uc2a4\uce74\ud3f4\ub77c\uc774\ud2b8","hex":"#E8D090","hue":48,"chroma":50,"lightness":72,"hardness":6,"price_tier":2,"origin_primary":"Tanzania","category":"tectosilicate","rarity":2,"lore":"Often chatoyant; comes in yellow, violet, pink, and colorless; underappreciated collector gem."},
+  {"id":"apatite","name":"Apatite","name_ko":"\uc544\ud30c\ud0c0\uc774\ud2b8","hex":"#3EB489","hue":158,"chroma":65,"lightness":52,"hardness":5,"price_tier":2,"origin_primary":"Mexico","category":"phosphate","rarity":2,"lore":"Human bones and teeth are made of apatite; rare gem-quality stones are vividly colored."},
+  {"id":"turquoise","name":"Turquoise","name_ko":"\ud130\ud0a4\uc11d","hex":"#30D5C8","hue":178,"chroma":65,"lightness":55,"hardness":5.5,"price_tier":3,"origin_primary":"Iran","category":"phosphate","rarity":2,"lore":"Persian turquoise, sky-blue without matrix, is the rarest and most valuable variety."},
+  {"id":"danburite","name":"Danburite","name_ko":"\ub2e8\ubd80\ub77c\uc774\ud2b8","hex":"#FFFDD0","hue":58,"chroma":8,"lightness":97,"hardness":7,"price_tier":2,"origin_primary":"Mexico","category":"nesosilicate","rarity":2,"lore":"Sometimes fluoresces strongly; colorless but warm, like a diamond warmed by candlelight."},
+  {"id":"cavansite","name":"Cavansite","name_ko":"\uce74\ubc18\uc0ac\uc774\ud2b8","hex":"#1E90FF","hue":212,"chroma":82,"lightness":54,"hardness":3,"price_tier":2,"origin_primary":"India","category":"phyllosilicate","rarity":3,"lore":"Electric blue spherical crystals on white matrix from Pune, India; fragile but spectacular."},
+  {"id":"vanadinite","name":"Vanadinite","name_ko":"\ubc14\ub098\ub514\ub098\uc774\ud2b8","hex":"#CC2200","hue":8,"chroma":85,"lightness":36,"hardness":3,"price_tier":2,"origin_primary":"Morocco","category":"vanadate","rarity":2,"lore":"Brilliant hexagonal red-orange crystals on white barite; named for its vanadium content."},
+  {"id":"crocoite","name":"Crocoite","name_ko":"\ud06c\ub85c\ucf54\uc544\uc774\ud2b8","hex":"#FF4F00","hue":16,"chroma":90,"lightness":52,"hardness":2.5,"price_tier":3,"origin_primary":"Australia","category":"chromate","rarity":3,"lore":"Intensely orange lead chromate needles from Dundas, Tasmania; too fragile to facet."},
+  {"id":"gaspeite","name":"Gaspeite","name_ko":"\uac00\uc2a4\ud398\uc774\ud2b8","hex":"#ADFF5C","hue":88,"chroma":82,"lightness":68,"hardness":4.5,"price_tier":3,"origin_primary":"Australia","category":"carbonate","rarity":3,"lore":"Vivid apple-green nickel carbonate; found in Western Australia."}
+];
+
+// ── 지구과학적 불순물 원소 (발색단·미량 치환) ──────────────────
+// 파괴 시 방출 + 합성 시 조건으로 사용
+const GEM_IMPURITIES = {
+  ruby:["Cr"],
+  sapphire_blue:["Fe","Ti"],
+  sapphire_yellow:["Fe"],
+  sapphire_pink:["Cr"],
+  sapphire_orange:["Fe","Cr"],
+  sapphire_purple:["V"],
+  sapphire_green:["Fe"],
+  padparadscha:["Cr","Fe"],
+  emerald:["Cr","V"],
+  aquamarine:["Fe"],
+  morganite:["Mn"],
+  heliodor:["Fe"],
+  red_beryl:["Mn"],
+  bixbite:["Mn"],
+  amethyst:["Fe"],
+  citrine:["Fe"],
+  smoky_quartz:["Al"],
+  rose_quartz:["Ti","Mn"],
+  prasiolite:["Fe"],
+  chalcedony_blue:["Fe"],
+  chrysoprase:["Ni"],  // Ni²⁺ 치환이 초록색 원인
+  carnelian:["Fe"],
+  onyx:["Al"],
+  tigers_eye:["Fe"],
+  hessonite:["Fe","Mn"],
+  tsavorite:["V","Cr"],
+  rhodolite:["Mn"],
+  spinel_red:["Cr"],
+  spinel_blue:["Fe"],
+  spinel_lavender:["V"],
+  spinel_pink:["Cr"],
+  chrysoberyl:["Fe"],
+  alexandrite:["Cr"],
+  cats_eye:["Fe"],
+  paraiba:["Cu"],
+  tourmaline_rubellite:["Mn"],
+  tourmaline_green:["Fe","Cr"],
+  tourmaline_indicolite:["Fe"],
+  tourmaline_watermelon:["Mn","Fe"],
+  sugilite:["Fe","Mn"],
+  topaz_imperial:["Cr"],
+  topaz_blue:["Fe"],
+  topaz_pink:["Cr"],
+  kyanite:["Fe","Ti"],
+  zircon_blue:["Fe"],
+  grandidierite:["Fe"],
+  tanzanite:["V"],
+  kornerupine:["Fe"],
+  nephrite:["Fe"],
+  kunzite:["Mn"],
+  hiddenite:["Cr"],
+  diopside:["Cr"],
+  labradorite:["Fe","Ti"],
+  sunstone:["Fe"],
+  spectrolite:["Fe","Ti"],
+  opal_black:["Fe"],
+  opal_fire:["Fe"],
+  amazonite:["Pb"],
+  apatite:["Mn"],
+  fluorite_purple:["Mn"],
+  zultanite:["Mn","Fe"],
+  pearl_black:["Mn"],
+  iolite:["Fe"],
+};
+
+
+
+// ── 합성 화학식 원소 요구량 (O 면제, 개수 포함) ────────────────────
+const GEM_FORMULA_COUNTS = {
+  ruby:{Al:2},
+  sapphire_blue:{Al:2},
+  sapphire_yellow:{Al:2},
+  sapphire_pink:{Al:2},
+  sapphire_orange:{Al:2},
+  sapphire_purple:{Al:2},
+  sapphire_green:{Al:2},
+  padparadscha:{Al:2},
+  emerald:{Be:2,Al:1,Si:1},
+  aquamarine:{Be:2,Al:1,Si:1},
+  morganite:{Be:2,Al:1,Si:1},
+  heliodor:{Be:2,Al:1,Si:1},
+  goshenite:{Be:2,Al:1,Si:1},
+  red_beryl:{Be:2,Al:1,Si:1},
+  bixbite:{Be:2,Al:1,Si:1},
+  amethyst:{Si:1},
+  citrine:{Si:1},
+  smoky_quartz:{Si:1},
+  rose_quartz:{Si:1},
+  prasiolite:{Si:1},
+  chalcedony_blue:{Si:1},
+  chrysoprase:{Si:1},
+  carnelian:{Si:1},
+  onyx:{Si:1},
+  tigers_eye:{Si:1},
+  almandine:{Fe:2,Al:1,Si:1},
+  pyrope:{Mg:2,Al:1,Si:1},
+  spessartite:{Mn:2,Al:1,Si:1},
+  grossular:{Ca:2,Al:1,Si:1},
+  hessonite:{Ca:2,Al:1,Si:1},
+  tsavorite:{Ca:2,Al:1,Si:1},
+  demantoid:{Ca:2,Fe:1,Si:1},
+  uvarovite:{Ca:2,Cr:2,Si:1},
+  mali_garnet:{Ca:2,Al:1,Fe:1,Si:1},
+  rhodolite:{Mg:1,Fe:1,Al:1,Si:1},
+  spinel_red:{Mg:1,Al:2},
+  spinel_blue:{Mg:1,Al:2},
+  spinel_lavender:{Mg:1,Al:2},
+  spinel_pink:{Mg:1,Al:2},
+  chrysoberyl:{Be:1,Al:2},
+  alexandrite:{Be:1,Al:2},
+  cats_eye:{Be:1,Al:2},
+  paraiba:{Na:1,Al:1,B:1,Si:1},
+  tourmaline_rubellite:{Na:1,Al:2,B:1,Si:1},
+  tourmaline_green:{Na:1,Al:2,B:1,Si:1},
+  tourmaline_indicolite:{Na:1,Al:2,B:1,Si:1},
+  tourmaline_watermelon:{Na:1,Al:2,B:1,Si:1},
+  tourmaline_black:{Na:1,Fe:2,Al:2,B:1,Si:1},
+  sugilite:{K:1,Na:1,Li:1,Si:1},
+  topaz_imperial:{Al:2,F:1,Si:1},
+  topaz_blue:{Al:2,F:1,Si:1},
+  topaz_pink:{Al:2,F:1,Si:1},
+  topaz_colorless:{Al:2,F:1,Si:1},
+  peridot:{Mg:2,Fe:1,Si:1},
+  kyanite:{Al:2,Si:1},
+  zircon_blue:{Zr:1,Si:1},
+  zircon_red:{Zr:1,Si:1},
+  phenakite:{Be:2,Si:1},
+  sphene:{Ca:1,Ti:1,Si:1},
+  clinohumite:{Mg:3,F:1,Si:1},
+  danburite:{Ca:1,B:2,Si:1},
+  grandidierite:{Mg:1,Al:2,B:1,Si:1},
+  tanzanite:{Ca:2,Al:2,Si:1},
+  kornerupine:{Mg:1,Al:2,B:1,Si:1},
+  nephrite:{Ca:1,Mg:2,Si:1},
+  jadeite:{Na:1,Al:1,Si:2},
+  kunzite:{Li:1,Al:1,Si:1},
+  hiddenite:{Li:1,Al:1,Si:1},
+  rhodonite:{Mn:1,Si:1},
+  diopside:{Ca:1,Mg:1,Si:2},
+  larimar:{Na:1,Ca:2,Si:2},
+  charoite:{K:1,Ca:1,Si:2},
+  cavansite:{Ca:1,V:1,Si:2},
+  scapolite:{Na:1,Ca:1,Al:2,Si:1},
+  labradorite:{Na:1,Al:1,Si:1},
+  moonstone:{K:1,Al:1,Si:1},
+  sunstone:{Na:1,Al:1,Si:1},
+  spectrolite:{Na:1,Al:1,Si:1},
+  amazonite:{K:1,Al:1,Si:1},
+  malachite:{Cu:1,C:1},
+  azurite:{Cu:2,C:1},
+  rhodochrosite:{Mn:1,C:1},
+  gaspeite:{Ni:1,C:1},
+  opal_black:{Si:1,H:1},
+  opal_white:{Si:1,H:1},
+  opal_fire:{Si:1,H:1},
+  apatite:{Ca:2,P:1,F:1},
+  turquoise:{Ca:2,P:1,Cu:1},
+  vanadinite:{Pb:1,V:1},
+  wulfenite:{Pb:1,Mo:1},
+  crocoite:{Pb:1,Cr:1},
+  painite:{Ca:1,Zr:1,Al:2,B:1},
+  jeremejevite:{Al:2,B:2,F:1},
+  fluorite:{Ca:1,F:2},
+  fluorite_purple:{Ca:1,F:2},
+  musgravite:{Be:1,Mg:1,Al:2},
+  taaffeite:{Be:1,Mg:1,Al:2},
+  zultanite:{Al:1},
+  pearl:{Ca:1,C:1},
+  pearl_black:{Ca:1,C:1},
+  amber:{C:3},
+  diamond:{C:5},
+  lapis_lazuli:{Na:1,Al:1,S:1,Si:1},
+  moldavite:{Si:2,Al:1},
+  iolite:{Mg:1,Al:2,Si:2},
+};
+
+// 중복 제거 + 화학식·원소·지터 주입
+const seen = new Set();
+const GEMS = GEMS_RAW.filter(g=>{ if(seen.has(g.id)) return false; seen.add(g.id); return true; });
+GEMS.forEach((g,i)=>{
+  const ov = GEM_OVERRIDE[g.id];
+  const ct = CAT_ELEM[g.category];
+  const src = ov || ct || {f:"SiO\u2082", e:["Si","O"]};
+  g.formula = src.f; g.elements = src.e;
+  // 결정론적 지터 (id 해시 기반)
+  const h = g.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  g._j1 = ((h*7919)%100)/100;
+  g._j2 = ((h*6271)%100)/100;
+  g._clicks = 0; g._breaking = false;
+});
+
+document.getElementById('count-num').textContent = GEMS.length;
+
+// ── 원소 출현 빈도 + 상시 원소 계산 ─────────────────────────────
+// AMBIENT_THRESHOLD(60%) 이상 보석에 포함되는 원소 → 합성 반경 체크 면제
+const ELEM_FREQ_MAP = {};
+GEMS.forEach(g => {
+  [...new Set(g.elements)].forEach(e => {
+    ELEM_FREQ_MAP[e] = (ELEM_FREQ_MAP[e]||0) + 1;
+  });
+});
+const AMBIENT_THRESHOLD = 0.97; // O(97%)만 면제 — Si는 개별 formula_counts에서 관리
+const AMBIENT_ELEMS = new Set(
+  Object.entries(ELEM_FREQ_MAP)
+    .filter(([,n]) => n/GEMS.length >= AMBIENT_THRESHOLD)
+    .map(([e]) => e)
+);
+// 결과: O(97%), Si(67%) → 상시 원소로 처리
+
+// ══ SVG SETUP ══════════════════════════════════════════════════════
+const svgEl  = d3.select('#stage');
+const floatersG = svgEl.append('g').attr('class','floatersLayer');
+const wheelG    = svgEl.append('g').attr('class','wheelLayer');
+const gRings = wheelG.append('g').attr('class','rings');
+const gGlow  = wheelG.append('g').attr('class','glowLayer'); // 모든 후광 — gems 아래
+const gGems  = wheelG.append('g').attr('class','gems');
+const gSynth = wheelG.append('g').attr('class','synthLayer');
+
+let W, H, cx, cy, outerR;
+function resize(){
+  W = window.innerWidth; H = window.innerHeight;
+  cx = W/2; cy = H/2 + 10;
+  outerR = Math.min(W,H) * 0.40;
+  svgEl.attr('width',W).attr('height',H);
+}
+resize();
+
+const ACHROMATIC_T = 12;
+const ACHROMATIC_R = 42;
+const INNER_R_MIN  = 60;
+
+// ══ FLOATING ORBIT ════════════════════════════════════════════════
+const floatingList = [];
+let loopStarted = false;
+const fcEl = document.getElementById('float-count');
+function bumpCount(){ fcEl.classList.add('on'); fcEl.querySelector('b').textContent = floatingList.length; }
+
+function startFloatLoop(){
+  if(loopStarted) return; loopStarted = true;
+  function step(now){
+    for(const p of floatingList){
+      const dt    = now - p.entryTime;
+      const theta = p.theta0 + p.omega * dt;
+      const x     = cx + p.r0 * Math.cos(theta);
+      const y     = cy + p.r0 * Math.sin(theta);
+      const decay = Math.max(0, 1 - dt/600);
+      const rot   = p.flightRotEnd * decay;
+      p.node.setAttribute('transform',`translate(${x},${y}) rotate(${rot})`);
+    }
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function hexA(hex,a){ const c=d3.color(hex); c.opacity=a; return c.toString(); }
+
+// ══ GEM SIZE ══════════════════════════════════════════════════════
+function gemR(d){ return 4 + d.price_tier*0.7 + d.rarity*0.4; }
+
+// ══ POSITION FUNCTIONS ════════════════════════════════════════════
+function posColor(d){
+  if(d.chroma < ACHROMATIC_T){
+    const ach = GEMS.filter(g=>g.chroma < ACHROMATIC_T);
+    const idx = ach.indexOf(d); const n = ach.length;
+    const a = (idx/n)*Math.PI*2;
+    const r = ACHROMATIC_R*(0.4+0.6*(d.lightness/100));
+    return {x: cx+r*Math.cos(a), y: cy+r*Math.sin(a)};
+  }
+  const angle = (d.hue/360)*Math.PI*2 - Math.PI/2;
+  const r = d3.scaleLinear().domain([0,100]).range([INNER_R_MIN, outerR])(d.chroma);
+  return {x: cx+r*Math.cos(angle), y: cy+r*Math.sin(angle)};
+}
+function posPrice(d){
+  const tR = {1:outerR*.18, 2:outerR*.36, 3:outerR*.54, 4:outerR*.72, 5:outerR*.90};
+  const angle = (d.hue/360)*Math.PI*2 - Math.PI/2;
+  const r = tR[d.price_tier] + (d._j1-.5)*outerR*.06;
+  return {x: cx+r*Math.cos(angle), y: cy+r*Math.sin(angle)};
+}
+function posHardness(d){
+  const angle = (d.hue/360)*Math.PI*2 - Math.PI/2;
+  const r = d3.scaleLinear().domain([1,10]).range([outerR*.12, outerR])(d.hardness);
+  return {x: cx+r*Math.cos(angle), y: cy+r*Math.sin(angle)};
+}
+function posRarity(d){
+  const angle = (d.hue/360)*Math.PI*2 - Math.PI/2;
+  const r = d3.scaleLinear().domain([1,5]).range([outerR*.15, outerR])(d.rarity) + (d._j1-.5)*outerR*.08;
+  return {x: cx+r*Math.cos(angle), y: cy+r*Math.sin(angle)};
+}
+const ORIGIN_ANG = {
+  'Brazil':10,'Colombia':25,'Russia':50,'Myanmar':80,'Sri Lanka':100,'India':115,
+  'Afghanistan':130,'Pakistan':145,'Australia':175,'South Africa':200,'Tanzania':220,
+  'Kenya':235,'Mozambique':250,'Madagascar':265,'Zambia':280,'Congo':295,'USA':320,
+  'Canada':340,'Iran':355,'Japan':5,'France':30,'China':60,'Turkey':70,'Finland':165,
+  'Norway':155,'Mali':95,'Mexico':190,'Morocco':210,'Dominican Republic':245,
+  'Tajikistan':120,'Czech Republic':310,'Cambodia':330,'Botswana':230,'Kashmir':110,
+  'French Polynesia':185,'Baltic':350,'Nepal':125,'Namibia':215,'Niger':75,'Nigeria':75,
+  'Democratic Republic of Congo':295,
+};
+function posOrigin(d){
+  const base = ORIGIN_ANG[d.origin_primary] || (d.id.charCodeAt(0)%360);
+  const angle = (base/360)*Math.PI*2 - Math.PI/2;
+  const r = d3.scaleLinear().domain([1,5]).range([outerR*.3, outerR*.9])(d.rarity);
+  return {x: cx+r*Math.cos(angle), y: cy+r*Math.sin(angle)};
+}
+function getPos(d,axis){
+  switch(axis){
+    case 'price':     return posPrice(d);
+    case 'hardness':  return posHardness(d);
+    case 'rarity':    return posRarity(d);
+    case 'origin':    return posOrigin(d);
+    default:          return posColor(d);
+  }
+}
+
+// ══ RINGS ═════════════════════════════════════════════════════════
+function drawRings(axis){
+  gRings.selectAll('*').remove();
+  const dc = '#2e2e2e';
+  if(axis==='color'){
+    [.3,.6,1].forEach(f=>{
+      gRings.append('circle').attr('cx',cx).attr('cy',cy).attr('r',outerR*f)
+        .attr('fill','none').attr('stroke',dc).attr('stroke-width',.5).attr('stroke-dasharray','2 6');
+    });
+    gRings.append('circle').attr('cx',cx).attr('cy',cy).attr('r',ACHROMATIC_R+16)
+      .attr('fill','none').attr('stroke',dc).attr('stroke-width',.5);
+  } else if(axis==='price'){
+    ['일반','저가','중가','고급','최상급'].forEach((l,i)=>{
+      const f=[.18,.36,.54,.72,.90][i];
+      gRings.append('circle').attr('cx',cx).attr('cy',cy).attr('r',outerR*f)
+        .attr('fill','none').attr('stroke',dc).attr('stroke-width',.5).attr('stroke-dasharray','2 6');
+      gRings.append('text').attr('x',cx).attr('y',cy-outerR*f-4)
+        .attr('text-anchor','middle').attr('class','ring-label').text(l);
+    });
+  } else if(axis==='hardness'){
+    [3,5,7,9].forEach(h=>{
+      const r=d3.scaleLinear().domain([1,10]).range([outerR*.12,outerR])(h);
+      gRings.append('circle').attr('cx',cx).attr('cy',cy).attr('r',r)
+        .attr('fill','none').attr('stroke',dc).attr('stroke-width',.5).attr('stroke-dasharray','2 6');
+      gRings.append('text').attr('x',cx+4).attr('y',cy-r-3)
+        .attr('class','ring-label').text(h);
+    });
+  } else if(axis==='rarity'){
+    ['흔함','비교적 희귀','희귀','매우 희귀','전설급'].forEach((l,i)=>{
+      const r=d3.scaleLinear().domain([1,5]).range([outerR*.15,outerR])(i+1);
+      gRings.append('circle').attr('cx',cx).attr('cy',cy).attr('r',r)
+        .attr('fill','none').attr('stroke',dc).attr('stroke-width',.5).attr('stroke-dasharray','2 6');
+      gRings.append('text').attr('x',cx+4).attr('y',cy-r-3)
+        .attr('class','ring-label').text(l);
+    });
+  } else if(axis==='origin'){
+    Object.entries(ORIGIN_ANG).forEach(([region,deg])=>{
+      const a=(deg/360)*Math.PI*2-Math.PI/2;
+      gRings.append('line')
+        .attr('x1',cx+outerR*.25*Math.cos(a)).attr('y1',cy+outerR*.25*Math.sin(a))
+        .attr('x2',cx+outerR*1.02*Math.cos(a)).attr('y2',cy+outerR*1.02*Math.sin(a))
+        .attr('stroke',dc).attr('stroke-width',.5);
+      gRings.append('text')
+        .attr('x',cx+outerR*1.06*Math.cos(a)).attr('y',cy+outerR*1.06*Math.sin(a))
+        .attr('text-anchor','middle').attr('dominant-baseline','middle')
+        .attr('class','ring-label').attr('font-size','7px').text(region);
+    });
+  }
+}
+
+// ══ GEM SEPARATION ───────────────────────────────────────────────
+// 포지션 계산 후 최소 거리 이하로 겹치는 보석들을 반발력으로 밀어냄
+function separateGems(gems, gap=5, iters=60){
+  for(let k=0; k<iters; k++){
+    let moved = false;
+    for(let i=0; i<gems.length-1; i++){
+      for(let j=i+1; j<gems.length; j++){
+        const a=gems[i], b=gems[j];
+        const dx=b._x-a._x, dy=b._y-a._y;
+        const d=Math.hypot(dx,dy);
+        const minD=gemR(a)+gemR(b)+gap;
+        if(d<minD && d>0.001){
+          const push=(minD-d)/2, nx=dx/d, ny=dy/d;
+          a._x-=nx*push; a._y-=ny*push;
+          b._x+=nx*push; b._y+=ny*push;
+          moved=true;
+        }
+      }
+    }
+    if(!moved) break;
+  }
+}
+
+// ══ RENDER ════════════════════════════════════════════════════════
+let currentAxis = 'color';
+function render(axis, animate){
+  drawRings(axis);
+  // 위치 갱신 + 겹침 분리
+  GEMS.forEach(d=>{ const p=getPos(d,axis); d._x=p.x; d._y=p.y; });
+  separateGems(GEMS);
+
+  const sel = gGems.selectAll('.gem-pos').data(GEMS, d=>d.id);
+
+  // ENTER
+  const enter = sel.enter().append('g').attr('class','gem-pos')
+    .attr('transform', d=>`translate(${d._x},${d._y})`);
+
+  const inner = enter.append('g').attr('class','gem');
+
+  inner.append('circle').attr('class','gem-halo')
+    .attr('r', d=>gemR(d)*2.2).attr('fill','none')
+    .attr('stroke', d=>hexA(d.hex,.6)).attr('stroke-width',.5).style('opacity',0);
+
+  inner.append('circle').attr('class','gem-dot')
+    .attr('r', d=>gemR(d))
+    .attr('fill', d=>hexA(d.hex,.78))
+    .attr('stroke', d=>hexA(d.hex,.9)).attr('stroke-width',.8);
+
+  inner.append('circle').attr('class','gem-progress')
+    .attr('r', d=>{ d._pR=gemR(d)+5; d._circ=2*Math.PI*d._pR; return d._pR; })
+    .attr('transform','rotate(-90)').attr('fill','none').attr('stroke-width',1.2)
+    .attr('stroke', d=>hexA(d.hex,.9))
+    .attr('stroke-dasharray', d=>`0 ${d._circ}`);
+
+  // 등장 애니메이션
+  inner.style('opacity',0).transition().duration(700).delay((_,i)=>i*5).style('opacity',1);
+
+  // 이벤트 (enter에만, 기존은 이미 바인딩됨)
+  enter
+    .on('mouseenter', function(event,d){
+      showTooltip(event,d);
+      if(!d._breaking){
+        d3.select(this).select('.gem-halo').style('opacity',.5);
+        d3.select(this).select('.gem-dot').attr('r',gemR(d)*1.35);
+      }
+    })
+    .on('mousemove', (event,d)=>showTooltip(event,d))
+    .on('mouseleave', function(event,d){
+      hideTooltip();
+      if(!d._breaking){
+        d3.select(this).select('.gem-halo').style('opacity',0);
+        d3.select(this).select('.gem-dot').attr('r',gemR(d));
+      }
+    })
+    .on('click', function(event,d){ if(interactionMode==='area') return; onGemClick(event,d); });
+
+  // ENTER + UPDATE → 위치 전환
+  const all = enter.merge(sel);
+  if(animate){
+    all.transition().duration(820).delay((_,i)=>i*4).ease(d3.easeCubicInOut)
+      .attr('transform', d=>`translate(${d._x},${d._y})`);
+  } else {
+    all.attr('transform', d=>`translate(${d._x},${d._y})`);
+  }
+  // ── GLOW 레이어 — 모든 보석 dot 아래에 별도 패스로 렌더 ──────
+  const glowSel = gGlow.selectAll('.gem-glow-pos:not(.synth-glow)').data(GEMS, d=>d.id);
+  const glowEnt = glowSel.enter().append('g').attr('class','gem-glow-pos')
+    .attr('transform', d=>`translate(${d._x},${d._y})`);
+  [[3.2,0.04],[2.0,0.09],[1.38,0.16]].forEach(([s,op])=>{
+    glowEnt.append('circle')
+      .attr('r', d=>gemR(d)*s)
+      .attr('fill', d=>hexA(d.hex,op))
+      .attr('stroke','none');
+  });
+  glowEnt.style('opacity',0).transition().duration(700).delay((_,i)=>i*5).style('opacity',1);
+  const allGlow = glowEnt.merge(glowSel);
+  if(animate){
+    allGlow.transition().duration(820).delay((_,i)=>i*4).ease(d3.easeCubicInOut)
+      .attr('transform', d=>`translate(${d._x},${d._y})`);
+  } else {
+    allGlow.attr('transform', d=>`translate(${d._x},${d._y})`);
+  }
+  glowSel.exit().remove();
+
+  sel.exit().remove();
+
+  // 합성 보석도 축 전환 시 위치 갱신 + 겹침 재계산
+  synthGems.forEach(sg => {
+    const base   = getPos(sg.gemData, axis);
+    const target = findFreePos(base, gemR(sg.gemData));
+    sg.pos = target;
+    const moveNode = n => {
+      if(!n) return;
+      if(animate){
+        d3.select(n).transition().duration(820).delay(Math.random()*150)
+          .ease(d3.easeCubicInOut).attr('transform',`translate(${target.x},${target.y})`);
+      } else {
+        d3.select(n).attr('transform',`translate(${target.x},${target.y})`);
+      }
+    };
+    moveNode(sg.node);
+    moveNode(sg.glowNode);
+  });
+}
+
+// ══ TOOLTIP ═══════════════════════════════════════════════════════
+const tooltip = document.getElementById('tooltip');
+const PRICE_L = ['','일반','저가','중가','고급','최상급'];
+const RARITY_L= ['','흔함','비교적 희귀','희귀','매우 희귀','전설급'];
+
+function showTooltip(event, d){
+  document.getElementById('tt-name').textContent = d.name_ko;
+  document.getElementById('tt-name-ko').textContent = d.name;
+  document.getElementById('tt-origin').textContent = d.origin_primary;
+  document.getElementById('tt-hard').textContent = d.hardness+' / 10';
+  document.getElementById('tt-price').textContent = PRICE_L[d.price_tier];
+  document.getElementById('tt-rarity').textContent = RARITY_L[d.rarity];
+  document.getElementById('tt-formula').textContent = d.formula;
+  document.getElementById('tt-lore').textContent = d.lore;
+  // 분해 진행도
+  const pct = Math.min((d._clicks||0)/d.h,1)*100;
+  document.getElementById('tt-pfill').style.width = pct+'%';
+  document.getElementById('tt-pfill').style.background = d.hex;
+  document.getElementById('tt-pval').textContent = d._breaking
+    ? d.name_ko+' \u2192 '+d.elements.join(' \u00b7 ')
+    : `${d._clicks||0} / ${d.hardness}`;
+  let tx=event.pageX+16, ty=event.pageY-10;
+  if(tx+240>W) tx=event.pageX-244;
+  if(ty+300>H) ty=H-310;
+  tooltip.style.left=tx+'px'; tooltip.style.top=ty+'px';
+  tooltip.classList.add('visible');
+}
+function hideTooltip(){ tooltip.classList.remove('visible'); }
+
+// ══ SELECTED PANEL ════════════════════════════════════════════════
+function showPanel(d){
+  document.getElementById('sp-name').textContent = d.name_ko;
+  document.getElementById('sp-ko').textContent   = d.name;
+  ['hard','rarity','price'].forEach(k=>{
+    const el=document.getElementById('sp-bar-'+k);
+    el.style.width = (k==='hard'?d.hardness/10:k==='rarity'?d.rarity/5:d.price_tier/5)*100+'%';
+    el.style.background = d.hex;
+  });
+  document.getElementById('sp-lore').textContent = d.lore;
+  document.getElementById('selected-panel').classList.add('visible');
+}
+
+// ══ CLICK / DECOMPOSE ════════════════════════════════════════════
+function onGemClick(event, d){
+  if(d._breaking) return;
+  showPanel(d);
+  d._clicks = (d._clicks||0)+1;
+  const node = event.currentTarget;
+  const g = d3.select(node);
+  const p = Math.min(d._clicks/d.hardness,1);
+  g.select('.gem-progress').attr('stroke-dasharray',`${p*d._circ} ${d._circ}`);
+  g.select('.gem-dot').transition().duration(80).attr('r',gemR(d)*1.5)
+    .transition().duration(160).attr('r',gemR(d));
+  if(d._clicks >= d.hardness) decompose(node, d);
+}
+
+function decompose(node, d){
+  d._breaking = true;
+  const g = d3.select(node);
+  const R = gemR(d);
+
+  // 실제 화면 위치 (회전 적용)
+  const abs = toAbsolute(d._x, d._y);
+
+  // 충격파 링 — 절대 좌표계(floatersG)에 배치
+  const sw = floatersG.append('g').attr('transform',`translate(${abs.x},${abs.y})`);
+  sw.append('circle').attr('r',R*1.2).attr('fill','none')
+    .attr('stroke',hexA(d.hex,.85)).attr('stroke-width',2.4)
+    .transition().duration(650).ease(d3.easeQuadOut)
+    .attr('r',R*22).attr('stroke-width',.2).style('opacity',0)
+    .on('end',function(){ sw.remove(); });
+
+  g.select('.gem-dot')
+    .transition().duration(80).attr('r',R*2.8).attr('stroke-width',3)
+    .transition().duration(400).attr('r',0).style('opacity',0);
+  g.select('.gem-halo')
+    .transition().duration(520).attr('r',outerR*.3).style('opacity',0);
+  g.select('.gem-progress').transition().duration(400).style('opacity',0);
+  gGlow.selectAll('.gem-glow-pos').filter(gd=>gd && gd.id===d.id)
+    .transition().duration(300).style('opacity',0);
+
+  // 불순물 원소 소량 방출 (지구과학적 발색단·미량 치환 원소)
+  const impElems = GEM_IMPURITIES[d.id] || [];
+  const abs0 = toAbsolute(d._x, d._y);
+  impElems.forEach((sym, ei) => {
+    const eData = ELEMENT_DATA[sym]||{mass:14,color:'#e2dfd8'};
+    const omega  = BASE_OMEGA / Math.sqrt(eData.mass/1.008);
+    const ang    = Math.random()*Math.PI*2;
+    const donutR = outerR * (1.08 + Math.random() * 0.42);
+    const tx = cx + Math.cos(ang)*donutR, ty = cy + Math.sin(ang)*donutR;
+    const fpeak = (Math.random()-.5)*360, fend = (Math.random()-.5)*28;
+    const delay = ei * 40 + 20;
+    const sx = abs0.x, sy = abs0.y;
+    const trail = floatersG.append('line')
+      .attr('x1',sx).attr('y1',sy).attr('x2',sx).attr('y2',sy)
+      .attr('stroke', hexA(d.hex, 0.28)).attr('stroke-width',1.2)
+      .attr('stroke-linecap','round').attr('stroke-dasharray','4 4').style('opacity',0);
+    trail.transition().delay(delay+130).duration(1400).ease(d3.easeQuadOut)
+      .attr('x2',tx).attr('y2',ty).style('opacity',0.28)
+      .transition().duration(350).style('opacity',0)
+      .on('end',function(){ d3.select(this).remove(); });
+    const eg = floatersG.append('g').attr('class','elemGlyph')
+      .style('opacity',0).style('filter','grayscale(0) brightness(1)')
+      .attr('transform',`translate(${sx},${sy})`);
+    eg.append('circle').attr('r',5)
+      .attr('fill',hexA(eData.color,.08)).attr('stroke',hexA(eData.color,.55)).attr('stroke-width',.8)
+      .attr('stroke-dasharray','2 3');
+    eg.append('text').attr('dy','.35em').attr('fill',eData.color)
+      .attr('font-size','7px').text(sym);
+    const fd2 = 1400 + Math.random()*400;
+    eg.transition().delay(delay).duration(110).style('opacity',.7)
+      .transition().duration(fd2).ease(d3.easeQuadOut)
+      .attrTween('transform',function(){
+        return u=>{
+          const x=sx+(tx-sx)*u, y=sy+(ty-sy)*u;
+          return `translate(${x},${y}) rotate(${fpeak*Math.sin(u*Math.PI)+fend*u})`;
+        };
+      })
+      .on('end',function(){
+        const r0=Math.hypot(tx-cx,ty-cy), theta0=Math.atan2(ty-cy,tx-cx);
+        const omegaK = omega / Math.sqrt(Math.max(r0,1) / outerR); // 케플러: 바깥 궤도일수록 느리게
+        floatingList.push({node:this,r0,theta0,entryTime:performance.now(),omega:omegaK,flightRotEnd:fend,absX:tx,absY:ty,gemId:d.id,sym});
+        bumpCount(); startFloatLoop();
+      });
+    eg.transition('color').delay(delay+130+fd2).duration(10000).ease(d3.easeLinear)
+      .style('opacity',.5).style('filter','grayscale(1) brightness(0.55)');
+  });
+
+  addLog('destroy', d.name_ko, d.elements, d.hex);
+
+  const N_PER = 3;
+  d.elements.forEach((sym,ei)=>{
+    const eData = ELEMENT_DATA[sym]||{mass:14,color:'#e2dfd8'};
+    const omega  = BASE_OMEGA / Math.sqrt(eData.mass/1.008);
+    for(let i=0;i<N_PER;i++){
+      const ang    = Math.random()*Math.PI*2;
+      const donutR = outerR * (1.08 + Math.random() * 0.42);
+      const tx     = cx + Math.cos(ang)*donutR;
+      const ty     = cy + Math.sin(ang)*donutR;
+      const fpeak  = (Math.random()-.5)*360;
+      const fend   = (Math.random()-.5)*28;
+      const delay  = ei*35+i*18;
+      const sx=abs.x, sy=abs.y;
+
+      const eg = floatersG.append('g').attr('class','elemGlyph')
+        .style('opacity',0)
+        .style('filter','grayscale(0) brightness(1)')
+        .attr('transform',`translate(${sx},${sy})`);
+      eg.append('circle').attr('r',7)
+        .attr('fill',hexA(eData.color,.1)).attr('stroke',hexA(eData.color,.7)).attr('stroke-width',1);
+      eg.append('text').attr('dy','.35em').attr('fill',eData.color)
+        .attr('font-size','8px').attr('letter-spacing','.04em').text(sym);
+
+      const flightDur = 1250 + Math.random()*450;
+
+      // 비행 trail — 원소보다 먼저 append해서 아래 레이어에 렌더
+      const trail = floatersG.append('line')
+        .attr('x1',sx).attr('y1',sy)
+        .attr('x2',sx).attr('y2',sy)
+        .attr('stroke', hexA(d.hex, 0.38))
+        .attr('stroke-width', 1.6)
+        .attr('stroke-linecap','round')
+        .style('opacity',0);
+      trail.transition().delay(delay+130).duration(flightDur).ease(d3.easeQuadOut)
+        .attr('x2',tx).attr('y2',ty).style('opacity',0.38)
+        .transition().duration(380).style('opacity',0)
+        .on('end',function(){ d3.select(this).remove(); });
+
+      // transform 전용 (무명 transition)
+      eg.transition().delay(delay).duration(130).style('opacity',.85)
+        .transition().duration(flightDur).ease(d3.easeQuadOut)
+        .attrTween('transform',function(){
+          return u=>{
+            const x=sx+(tx-sx)*u, y=sy+(ty-sy)*u;
+            const r=fpeak*Math.sin(u*Math.PI)+fend*u;
+            return `translate(${x},${y}) rotate(${r})`;
+          };
+        })
+        .on('end',function(){
+          const r0     = Math.hypot(tx-cx, ty-cy);
+          const theta0 = Math.atan2(ty-cy, tx-cx);
+          const omegaK2 = omega / Math.sqrt(Math.max(r0,1) / outerR);
+          floatingList.push({node:this, r0, theta0, entryTime:performance.now(), omega:omegaK2, flightRotEnd:fend, absX:tx, absY:ty, gemId:d.id, sym});
+          bumpCount(); startFloatLoop();
+        });
+
+      // 착지 후부터 서서히 탈색 — 비행 중엔 원색 유지
+      eg.transition('color').delay(delay + 130 + flightDur).duration(10000).ease(d3.easeLinear)
+        .style('opacity', 0.5)
+        .style('filter', 'grayscale(1) brightness(0.55)');
+    }
+  });
+
+}
+
+// ══ ACTIVITY LOG ═════════════════════════════════════════════════
+const LOG_MAX = 15;
+
+// 일괄파괴 배칭: area 모드에서 개별 로그 대신 단건 요약 처리
+let _batchingDestroy = false;
+let _batchQueue = [];
+
+function addLog(type, gemNameKo, elements, hex){
+  if(type === 'destroy' && _batchingDestroy){
+    _batchQueue.push({gemNameKo, elements, hex});
+    return;
+  }
+  _appendLogEntry(type, gemNameKo, elements, hex);
+}
+
+function _flushBatch(){
+  if(_batchQueue.length === 0) return;
+  if(_batchQueue.length === 1){
+    const {gemNameKo,elements,hex} = _batchQueue[0];
+    _appendLogEntry('destroy', gemNameKo, elements, hex);
+  } else {
+    // 요약 단건 로그
+    const names = _batchQueue.slice(0,3).map(g=>g.gemNameKo).join(', ')
+      + (_batchQueue.length > 3 ? ` 외 ${_batchQueue.length-3}종` : '');
+    const allElems = [...new Set(_batchQueue.flatMap(g=>g.elements))];
+    _appendLogEntry('destroy', `${_batchQueue.length}종 범위 파괴 (${names})`, allElems, '#c8a96e');
+  }
+  _batchQueue = [];
+}
+
+function _appendLogEntry(type, gemNameKo, elements, hex){
+  const log = document.getElementById('activity-log');
+  if(!log) return;
+  const uniqueElems = [...new Set(elements)];
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + type;
+
+  const badge = `<span class="log-badge ${type}">${type==='destroy'?'파괴':'합성'}</span>`;
+
+  const gemBox =
+    `<div class="log-gem-box" style="border-color:${hexA(hex,.4)};background:${hexA(hex,.07)}">` +
+    `<span class="log-gem-dot" style="background:${hex}"></span>` +
+    `<span class="log-gem-name">${gemNameKo}</span>` +
+    `</div>`;
+
+  const elemBoxes = uniqueElems.map(sym=>{
+    const ec = (ELEMENT_DATA[sym]||{color:'#aaaaaa'}).color;
+    return `<span class="log-elem" style="color:${ec};border-color:${hexA(ec,.38)};background:${hexA(ec,.07)}">${sym}</span>`;
+  }).join('');
+  const elems = `<div class="log-elements">${elemBoxes}</div>`;
+  const arrow = `<span class="log-arrow">→</span>`;
+
+  entry.innerHTML = type==='destroy'
+    ? badge + gemBox + arrow + elems
+    : badge + elems + arrow + gemBox;
+
+  log.appendChild(entry);
+  if(log.children.length > LOG_MAX){
+    const oldest = log.firstChild;
+    oldest.classList.add('removing');
+    setTimeout(()=>{ if(oldest.parentNode) oldest.remove(); }, 500);
+  }
+}
+
+// ══ SYNTHESIS ════════════════════════════════════════════════════
+// scatter 직후 재합성 방지: 공전 12초 이상 된 원소만 대상
+const MIN_ORBIT_AGE = 12000;
+// 같은 보석 종류 연속 합성 방지 쿨타임
+const LAST_SYNTH    = {};
+const synthGems     = [];
+
+function elemCurPos(p){
+  const dt    = performance.now() - p.entryTime;
+  const theta = p.theta0 + p.omega * dt;
+  return { x: cx + p.r0*Math.cos(theta), y: cy + p.r0*Math.sin(theta) };
+}
+
+// 황금각 나선으로 겹치지 않는 빈 자리 탐색
+function findFreePos(base, newR){
+  const gap = newR + 12;
+  let pos = {...base};
+  for(let k=0; k<20; k++){
+    let ok = true;
+    for(const g of GEMS){
+      if(g._x==null) continue;
+      if(Math.hypot(pos.x-g._x, pos.y-g._y) < gap+gemR(g)){ ok=false; break; }
+    }
+    if(ok){
+      for(const s of synthGems){
+        if(Math.hypot(pos.x-s.pos.x, pos.y-s.pos.y) < gap+gemR(s.gemData)){ ok=false; break; }
+      }
+    }
+    if(ok) return pos;
+    const a = k * 2.3999; // 황금각
+    const r = gap * 1.9 * (0.4 + k*0.12);
+    pos = { x: base.x + r*Math.cos(a), y: base.y + r*Math.sin(a) };
+  }
+  return pos;
+}
+
+// 가치 반비례 합성 반경
+function gemSynthR(gem){
+  const score = (gem.price_tier||1) + (gem.rarity||1);
+  const t = (score - 2) / 8;
+  return outerR * (0.28 - 0.22 * t);
+}
+
+function checkSynthesis(){
+  const now = performance.now();
+  const eligible = floatingList.filter(p => now - p.entryTime > MIN_ORBIT_AGE);
+  if(eligible.length < 2) return;
+  eligible.forEach(p => { p._cur = elemCurPos(p); });
+
+  // 가중 랜덤 우선순위: 고가 보석이 평균적으로 먼저 체크됨
+  const checkOrder = [...GEMS].sort((a,b)=>{
+    const wA = (a.price_tier * a.rarity) * (0.6 + Math.random() * 0.8);
+    const wB = (b.price_tier * b.rarity) * (0.6 + Math.random() * 0.8);
+    return wB - wA;
+  });
+
+  for(const gem of checkOrder){
+    if(LAST_SYNTH[gem.id] && now - LAST_SYNTH[gem.id] < 20000) continue;
+
+    const fc      = GEM_FORMULA_COUNTS[gem.id];
+    const impArr  = GEM_IMPURITIES[gem.id] || [];
+    if(!fc) continue;
+
+    const sR = gemSynthR(gem);
+
+    // ① 화학식 원소 후보 풀 확인 (개수 포함)
+    const byType = {};
+    let missing = false;
+    for(const [e, count] of Object.entries(fc)){
+      if(AMBIENT_ELEMS.has(e)) continue; // O 면제
+      byType[e] = eligible.filter(p => p.sym === e);
+      if(byType[e].length < count){ missing=true; break; }
+    }
+    if(missing) continue;
+
+    // ② 불순물 후보 풀 확인
+    const impPool = impArr.length > 0
+      ? eligible.filter(p => impArr.includes(p.sym))
+      : null; // null = 불순물 불필요
+    if(impArr.length > 0 && impPool.length === 0) continue;
+
+    // ③ anchor 기반 클러스터 탐색
+    const fcEntries = Object.entries(fc).filter(([e])=>!AMBIENT_ELEMS.has(e));
+    if(fcEntries.length === 0) continue; // 전부 면제인 경우 스킵(비정상)
+
+    const anchorPool = byType[fcEntries[0][0]];
+    for(const anchor of anchorPool){
+      const ax = anchor._cur.x, ay = anchor._cur.y;
+      const cluster = [];
+      let valid = true;
+
+      // 화학식 원소 클러스터
+      for(const [e, count] of fcEntries){
+        const close = byType[e].filter(p =>
+          !cluster.includes(p) &&
+          Math.hypot(p._cur.x-ax, p._cur.y-ay) < sR
+        );
+        if(close.length < count){ valid=false; break; }
+        for(let k=0; k<count; k++) cluster.push(close[k]);
+      }
+      if(!valid) continue;
+
+      // 불순물 탐색 (반경 내 1개 이상)
+      if(impPool !== null){
+        const impHit = impPool.find(p =>
+          !cluster.includes(p) &&
+          Math.hypot(p._cur.x-ax, p._cur.y-ay) < sR
+        );
+        if(!impHit){ continue; }
+        cluster.push(impHit);
+      }
+
+      // 합성 성공
+      const sx = cluster.reduce((s,p)=>s+p._cur.x,0)/cluster.length;
+      const sy = cluster.reduce((s,p)=>s+p._cur.y,0)/cluster.length;
+      LAST_SYNTH[gem.id] = now;
+      synthesizeGem(gem, {x:sx,y:sy}, cluster);
+      return;
+    }
+  }
+}
+
+function synthesizeGem(gemData, synthPos, cluster){
+  const synthData = Object.assign({}, gemData, {_clicks:0, _breaking:false});
+  const synthR = outerR * 0.15;
+
+  // synthPos(절대) → wheelG 로컬 변환 (gSynth/gGlow 내 요소 배치용)
+  const localSynth = toWheelLocal(synthPos.x, synthPos.y);
+
+  // 링 + 원소 수렴 동시 시작 (1300ms)
+  const harbG = gSynth.append('g')
+    .attr('transform', `translate(${localSynth.x},${localSynth.y})`);
+  const harbR = outerR*(0.28-0.22*Math.min(((synthData.price_tier||1)+(synthData.rarity||1)-2)/8,1));
+  harbG.append('circle').attr('class','harbinger-ring')
+    .attr('r', harbR * 0.85).attr('fill','none')
+    .attr('stroke', hexA(gemData.hex, 0.85)).attr('stroke-width', 4.2);
+
+  cluster.forEach(p => {
+    const i = floatingList.indexOf(p);
+    if(i >= 0) floatingList.splice(i, 1);
+
+    const el = d3.select(p.node);
+
+    // 백색 pulse → 수렴
+    el.interrupt()
+      .transition().duration(200).ease(d3.easeQuadOut)
+        .style('filter', 'grayscale(0) brightness(4)')
+        .style('opacity', 1)
+      .transition().duration(1100).ease(d3.easeCubicIn)
+        .style('filter', 'grayscale(1) brightness(2)')
+        .style('opacity', 0)
+        .attr('transform', `translate(${synthPos.x},${synthPos.y}) scale(0.04)`)
+      .on('end', function(){ d3.select(this).remove(); });
+  });
+  bumpCount();
+
+  // 1300ms 후: 링 종료 직후 목적지에서 즉시 소환 (이동 없음)
+  setTimeout(()=>{
+    harbG.remove();
+
+    const R      = gemR(synthData);
+    synthData._pR   = R + 5;
+    synthData._circ = 2 * Math.PI * synthData._pR;
+
+    const base   = getPos(synthData, currentAxis);
+    const target = findFreePos(base, R);
+
+    // 1300ms 경과 후 현재 회전각 기준으로 로컬 좌표 재계산
+    const localSynthNow = toWheelLocal(synthPos.x, synthPos.y);
+
+    // synthPos 잔류 shockwave (floatersG — 절대 좌표)
+    const sw = floatersG.append('g').attr('transform',`translate(${synthPos.x},${synthPos.y})`);
+    sw.append('circle').attr('r',5).attr('fill','none')
+      .attr('stroke',hexA(synthData.hex,.7)).attr('stroke-width',2)
+      .transition().duration(700).ease(d3.easeQuadOut)
+      .attr('r', outerR*.18).attr('stroke-width',.1).style('opacity',0)
+      .on('end',()=>sw.remove());
+
+    // ── 합성 위치(외부 링)에서 등장 후 색상환 안쪽으로 이동 ─────────
+    const grp = gSynth.append('g')
+      .attr('transform', `translate(${localSynthNow.x},${localSynthNow.y})`)
+      .style('cursor','pointer');
+
+    const inner = grp.append('g');
+
+    // 등장 burst: 바깥으로 짧게 터지는 링
+    inner.append('circle').attr('r', R*1.2).attr('fill','none')
+      .attr('stroke', hexA(synthData.hex,.8)).attr('stroke-width',1.8)
+      .transition().duration(500).ease(d3.easeQuadOut)
+      .attr('r', R*6).attr('stroke-width',.2).style('opacity',0);
+
+    inner.append('circle').attr('class','gem-halo')
+      .attr('r', R*2.5).attr('fill','none')
+      .attr('stroke', hexA(synthData.hex,.45)).attr('stroke-width',.5)
+      .style('opacity',0);
+
+    // dot: 0에서 등장
+    inner.append('circle').attr('class','gem-dot').attr('r',0)
+      .attr('fill', hexA(synthData.hex,.78))
+      .attr('stroke', hexA(synthData.hex,.9)).attr('stroke-width',.8)
+      .transition().duration(400).ease(d3.easeBackOut.overshoot(1.5))
+      .attr('r', R);
+
+    inner.append('circle').attr('class','gem-progress')
+      .attr('r', synthData._pR)
+      .attr('transform','rotate(-90)').attr('fill','none').attr('stroke-width',1.2)
+      .attr('stroke', hexA(synthData.hex,.9))
+      .attr('stroke-dasharray', `0 ${synthData._circ}`);
+
+    // glow: 합성 위치에서 함께 시작
+    const glowG = gGlow.append('g').attr('class','gem-glow-pos synth-glow')
+      .attr('transform', `translate(${localSynthNow.x},${localSynthNow.y})`);
+    [[3.2,0.04],[2.0,0.09],[1.38,0.16]].forEach(([s,op])=>{
+      glowG.append('circle').attr('r', R*s)
+        .attr('fill', hexA(synthData.hex,op)).attr('stroke','none');
+    });
+
+    // 등장 후 내부 색상환 위치로 부드럽게 이동
+    grp.transition().delay(450).duration(2400).ease(d3.easeCubicInOut)
+      .attr('transform', `translate(${target.x},${target.y})`);
+    glowG.transition().delay(450).duration(2400).ease(d3.easeCubicInOut)
+      .attr('transform', `translate(${target.x},${target.y})`);
+
+    const sg = { gemData:synthData, node:grp.node(), glowNode:glowG.node(), pos:{...target} };
+    synthGems.push(sg);
+
+    grp
+      .on('mouseenter', function(e){
+        showTooltip(e, synthData);
+        if(!synthData._breaking){
+          d3.select(this).select('.gem-halo').style('opacity',.45);
+          d3.select(this).select('.gem-dot').attr('r', R*1.35);
+        }
+      })
+      .on('mousemove',  function(e){ showTooltip(e, synthData); })
+      .on('mouseleave', function(){
+        hideTooltip();
+        if(!synthData._breaking){
+          d3.select(this).select('.gem-halo').style('opacity',0);
+          d3.select(this).select('.gem-dot').attr('r', R);
+        }
+      })
+      .on('click', function(e){ if(interactionMode==='area') return; onSynthClick(e, synthData, grp.node(), sg); });
+
+    addLog('synth', synthData.name_ko, synthData.elements, synthData.hex);
+
+  }, 1300);
+}
+
+// 합성 보석 클릭 핸들러
+function onSynthClick(event, d, node, sg){
+  if(d._breaking) return;
+  showPanel(d);
+  d._clicks = (d._clicks||0) + 1;
+  const g = d3.select(node);
+  const p = Math.min(d._clicks / d.hardness, 1);
+  g.select('.gem-progress').attr('stroke-dasharray',`${p*d._circ} ${d._circ}`);
+  g.select('.gem-dot').transition().duration(80).attr('r',gemR(d)*1.5)
+    .transition().duration(160).attr('r',gemR(d));
+  if(d._clicks >= d.hardness) decomposeSynth(node, d, sg);
+}
+
+// 합성 보석 분해 (리스폰 없음 — 원소만 방출하고 소멸)
+function decomposeSynth(node, d, sg){
+  d._breaking = true;
+  const g = d3.select(node); const R = gemR(d);
+
+  // 후광 즉시 페이드아웃 (분해 시작과 동시)
+  if(sg.glowNode)
+    d3.select(sg.glowNode).transition().duration(300).style('opacity',0);
+  g.select('.gem-dot')
+    .transition().duration(140).attr('r',R*2.4).attr('stroke-width',2.4)
+    .transition().duration(360).attr('r',0).style('opacity',0);
+  g.select('.gem-halo')
+    .transition().duration(520).attr('r',outerR*.3).style('opacity',0);
+  g.select('.gem-progress').transition().duration(400).style('opacity',0);
+
+  // sg.pos는 wheelG 로컬 좌표 → 실제 화면 좌표로 변환
+  const absS = toAbsolute(sg.pos.x, sg.pos.y);
+  const ox = absS.x, oy = absS.y;
+  const N_PER = 3;
+  d.elements.forEach((sym,ei)=>{
+    const eData = ELEMENT_DATA[sym]||{mass:14,color:'#e2dfd8'};
+    const omega = BASE_OMEGA / Math.sqrt(eData.mass/1.008);
+    for(let i=0;i<N_PER;i++){
+      const ang  = Math.random()*Math.PI*2;
+      const donutR = outerR * (1.08 + Math.random() * 0.42);
+      const tx   = cx + Math.cos(ang)*donutR, ty = cy + Math.sin(ang)*donutR;
+      const fpeak= (Math.random()-.5)*360, fend=(Math.random()-.5)*28;
+      const delay= ei*35+i*18;
+      const eg   = floatersG.append('g').attr('class','elemGlyph')
+        .style('opacity',0).style('filter','grayscale(0) brightness(1)')
+        .attr('transform',`translate(${ox},${oy})`);
+      eg.append('circle').attr('r',7)
+        .attr('fill',hexA(eData.color,.1)).attr('stroke',hexA(eData.color,.7)).attr('stroke-width',1);
+      eg.append('text').attr('dy','.35em').attr('fill',eData.color)
+        .attr('font-size','8px').text(sym);
+      const fd = 1250+Math.random()*450;
+
+      // 비행 trail
+      const trail = floatersG.append('line')
+        .attr('x1',ox).attr('y1',oy)
+        .attr('x2',ox).attr('y2',oy)
+        .attr('stroke', hexA(d.hex, 0.38))
+        .attr('stroke-width', 1.6)
+        .attr('stroke-linecap','round')
+        .style('opacity',0);
+      trail.transition().delay(delay+130).duration(fd).ease(d3.easeQuadOut)
+        .attr('x2',tx).attr('y2',ty).style('opacity',0.38)
+        .transition().duration(380).style('opacity',0)
+        .on('end',function(){ d3.select(this).remove(); });
+      eg.transition().delay(delay).duration(130).style('opacity',.85)
+        .transition().duration(fd).ease(d3.easeQuadOut)
+        .attrTween('transform',function(){
+          return u=>{
+            const x=ox+(tx-ox)*u, y=oy+(ty-oy)*u;
+            return `translate(${x},${y}) rotate(${fpeak*Math.sin(u*Math.PI)+fend*u})`;
+          };
+        })
+        .on('end',function(){
+          const r0=Math.hypot(tx-cx,ty-cy), theta0=Math.atan2(ty-cy,tx-cx);
+          const omegaK3 = omega / Math.sqrt(Math.max(r0,1) / outerR);
+          floatingList.push({node:this,r0,theta0,entryTime:performance.now(),omega:omegaK3,flightRotEnd:fend,absX:tx,absY:ty,gemId:`synth_${d.id}`,sym});
+          bumpCount(); startFloatLoop();
+        });
+      eg.transition('color').delay(delay+130+fd).duration(10000).ease(d3.easeLinear)
+        .style('opacity',.5).style('filter','grayscale(1) brightness(0.55)');
+    }
+  });
+  setTimeout(()=>{
+    const idx = synthGems.indexOf(sg);
+    if(idx>=0) synthGems.splice(idx,1);
+    d3.select(node).remove();
+    if(sg.glowNode) d3.select(sg.glowNode).remove();
+  }, 2200);
+}
+
+// ══ INTERACTION MODE ══════════════════════════════════════════════
+let interactionMode = 'single';
+const AREA_R = () => outerR * 0.14;
+let areaCursor = null;
+
+function setMode(mode){
+  interactionMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === mode)
+  );
+  svgEl.style('cursor', mode === 'area' ? 'crosshair' : null);
+  if(mode !== 'area' && areaCursor){ areaCursor.remove(); areaCursor = null; }
+}
+
+// 범위 파괴 — 커서 링
+svgEl.on('mousemove.mode', function(event){
+  if(interactionMode !== 'area') return;
+  const [mx, my] = d3.pointer(event);
+  if(!areaCursor){
+    areaCursor = floatersG.append('circle').attr('pointer-events','none')
+      .attr('fill','none')
+      .attr('stroke','rgba(226,201,140,.3)')
+      .attr('stroke-width',.8)
+      .attr('stroke-dasharray','3 5');
+  }
+  areaCursor.attr('cx',mx).attr('cy',my).attr('r',AREA_R());
+});
+
+svgEl.on('mouseleave.mode', function(){
+  if(areaCursor){ areaCursor.remove(); areaCursor = null; }
+});
+
+// 범위 파괴 — 클릭
+svgEl.on('click.mode', function(event){
+  if(interactionMode !== 'area') return;
+  const [mx, my] = d3.pointer(event);
+  const aR = AREA_R();
+
+  // 클릭 ripple
+  const ripple = floatersG.append('circle')
+    .attr('cx',mx).attr('cy',my).attr('r',aR*.3)
+    .attr('fill','none')
+    .attr('stroke',hexA('#c8a96e',.7)).attr('stroke-width',1.4);
+  ripple.transition().duration(520).ease(d3.easeQuadOut)
+    .attr('r',aR*1.15).attr('stroke-width',.1).style('opacity',0)
+    .on('end',function(){ d3.select(this).remove(); });
+
+  // 범위 내 일괄파괴 — 로그는 단건 요약으로
+  _batchingDestroy = true;
+  _batchQueue = [];
+
+  gGems.selectAll('.gem-pos').each(function(d){
+    if(d._breaking) return;
+    const abs = toAbsolute(d._x, d._y);
+    if(Math.hypot(abs.x-mx, abs.y-my) <= aR) decompose(this, d);
+  });
+  [...synthGems].forEach(sg => {
+    if(sg.gemData._breaking) return;
+    const abs = toAbsolute(sg.pos.x, sg.pos.y);
+    if(Math.hypot(abs.x-mx, abs.y-my) <= aR) decomposeSynth(sg.node, sg.gemData, sg);
+  });
+
+  _batchingDestroy = false;
+  _flushBatch();
+});
+
+document.querySelectorAll('.mode-btn').forEach(btn =>
+  btn.addEventListener('click', () => setMode(btn.dataset.mode))
+);
+
+// ══ AXIS BUTTONS ════════════════════════════════════════════════
+document.querySelectorAll('.axis-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.axis-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentAxis = btn.dataset.axis;
+    render(currentAxis, true);
+  });
+});
+
+// ══ WHEEL ROTATION ════════════════════════════════════════════════
+const WHEEL_DEG_PER_SEC = 0.8; // 0.8°/s → 7.5분에 한 바퀴
+let currentWheelAngle = 0;
+
+// wheelG 로컬 좌표 → 화면 절대 좌표 (floatersG 등 회전 밖 레이어용)
+function toAbsolute(lx, ly){
+  const rad = currentWheelAngle * Math.PI / 180;
+  const dx = lx - cx, dy = ly - cy;
+  return {
+    x: cx + dx*Math.cos(rad) - dy*Math.sin(rad),
+    y: cy + dx*Math.sin(rad) + dy*Math.cos(rad)
+  };
+}
+// 화면 절대 좌표 → wheelG 로컬 좌표 (gSynth/gGlow 내부 배치용)
+function toWheelLocal(ax, ay){
+  const rad = -currentWheelAngle * Math.PI / 180;
+  const dx = ax - cx, dy = ay - cy;
+  return {
+    x: cx + dx*Math.cos(rad) - dy*Math.sin(rad),
+    y: cy + dx*Math.sin(rad) + dy*Math.cos(rad)
+  };
+}
+
+function startWheelRotation(){
+  let t0 = null;
+  function step(now){
+    if(!t0) t0 = now;
+    currentWheelAngle = ((now - t0) / 1000 * WHEEL_DEG_PER_SEC) % 360;
+    wheelG.attr('transform', `rotate(${currentWheelAngle},${cx},${cy})`);
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ══ INIT ════════════════════════════════════════════════════════
+render('color', false);
+startWheelRotation();
+setInterval(checkSynthesis, 2000);
+window.addEventListener('resize',()=>{
+  resize();
+  // 부유 원소 궤도 중심 재계산
+  floatingList.forEach(p=>{
+    p.r0=Math.hypot(p.absX-cx,p.absY-cy);
+    const massV = (window.ELEMENT_DATA&&ELEMENT_DATA[p.sym])?ELEMENT_DATA[p.sym].mass:12;
+    const baseOm = BASE_OMEGA/Math.sqrt(massV/1.008);
+    p.omega = baseOm / Math.sqrt(Math.max(p.r0,1)/outerR);
+    p.theta0=Math.atan2(p.absY-cy,p.absX-cx);
+    p.entryTime=performance.now();
+  });
+  render(currentAxis, false);
+});
+</script>
+</body>
+</html>
